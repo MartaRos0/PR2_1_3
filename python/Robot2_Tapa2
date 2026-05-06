@@ -1,0 +1,124 @@
+import time
+
+from robodk import robolink    # RoboDK API
+from robodk import robomath    # Robot toolbox
+from robolink import *
+RDK = robolink.Robolink()
+
+"""
+Stack Tecnológico: Python 3.x, RoboDK API (robolink, robomath).
+Descripción: Script cinemático del Robot 2 (UR3e de Tapas). 
+Contiene las rutinas de movimiento exactas para recoger la Tapa Tipo 2 
+desde su respectivo pedestal y colocarla sobre la caja correspondiente.
+"""
+
+robot = RDK.Item('r_UR3e_(TAPAS)', robolink.ITEM_TYPE_ROBOT)
+tool = RDK.Item('VENTOSA-FIN', robolink.ITEM_TYPE_TOOL)
+
+#FRAMES
+frame_robot = RDK.Item('UR3e Base (2)', robolink.ITEM_TYPE_FRAME) #Estan los targets basicos (home, safe, pp)
+frame_zt_rb2 = RDK.Item('ROBOT2', robolink.ITEM_TYPE_FRAME)
+frame_at_2_rb2 = RDK.Item('Frame PEDESTAL (PACK 2)', robolink.ITEM_TYPE_FRAME)
+frame_at_2_rb2_cog = RDK.Item('COGIDA_TAPA_2', robolink.ITEM_TYPE_FRAME)
+
+frame_cinta = RDK.Item('FrameCintaP', robolink.ITEM_TYPE_FRAME)
+frame_cinta_aprox = RDK.Item('LLEGADA CINTA', robolink.ITEM_TYPE_FRAME)
+
+
+#TARGETS
+home = RDK.Item('HOME_R2', robolink.ITEM_TYPE_TARGET)
+safe = RDK.Item('SAFE_R2', robolink.ITEM_TYPE_TARGET)
+punto_paso = RDK.Item('PUNTO_PASO_R2', robolink.ITEM_TYPE_TARGET)
+
+pick_tapa_2 = RDK.Item('PICK_TAPA_2', robolink.ITEM_TYPE_TARGET)
+prepick_tapa_2 = RDK.Item('PREPICK_TAPA_2', robolink.ITEM_TYPE_TARGET)
+
+tapa_preplace = RDK.Item('PREPLACE_TAPA', robolink.ITEM_TYPE_TARGET)
+tapa_place = RDK.Item('PLACE_TAPA', robolink.ITEM_TYPE_TARGET)
+
+#VARIABLES
+
+
+# Asignar la herramienta al robot
+robot.setTool(tool)
+
+def Pick_tapa2(r):
+    """
+    Realiza la maniobra de aproximación, sujeción y retroceso de una Tapa Tipo 2.
+    Adjunta el objeto a la ventosa, pausa la simulación 1000ms para asegurar el agarre
+    y repone una nueva Tapa Tipo 2 en el pedestal.
+    
+    r (Item): El objeto robot de RoboDK que realizará el movimiento.
+    """
+    r.setPoseFrame(frame_at_2_rb2_cog)
+    r.MoveJ(prepick_tapa_2)
+
+    velocidad_lineal = 50
+    r.setSpeed(velocidad_lineal)
+
+    r.MoveL(pick_tapa_2)
+
+    #ADJUNTAR OBJETO A VENTOSA
+    tool.AttachClosest()
+
+    RDK.setParam('IO_0', '1')
+    r.Pause(1000)
+    r.MoveL(prepick_tapa_2)
+
+    velocidad_lineal = 200
+    robot.setSpeed(velocidad_lineal)
+
+    RDK.RunProgram('REPONER_TAPA_2', False)
+
+
+def Place_tapa2(r):
+    """
+    Realiza la maniobra de posicionamiento y liberación (Place) de la Tapa Tipo 2 
+    sobre la caja en la cinta transportadora principal.
+    """
+    r.setPoseFrame(frame_cinta_aprox)
+    r.MoveJ(tapa_preplace)
+
+    velocidad_lineal = 50
+    r.setSpeed(velocidad_lineal)
+
+    r.MoveL(tapa_place)
+
+    #LIBERAR TAPA
+    frame_destino = RDK.Item('FrameCAJA', ITEM_TYPE_FRAME)
+    tool.DetachAll(frame_destino)
+
+    RDK.setParam('IO_0', '0')
+    r.Pause(1000)
+    r.MoveL(tapa_preplace)
+
+    velocidad_lineal = 200
+    r.setSpeed(velocidad_lineal)
+
+
+def PickAndPlace_tapa_tipo2(r):
+    """
+    Rutina completa para el sellado de una Caja Tipo 2.
+    Bloquea el flujo de la estación, ejecuta las rutinas de Pick y Place 
+    utilizando puntos de paso seguros, y restaura la continuidad.
+    """
+    RDK.setParam('Conti_T', '0')
+    
+    r.setPoseFrame(frame_robot)
+
+    r.MoveJ(safe)
+
+    Pick_tapa2(robot)
+
+    r.setPoseFrame(frame_robot)
+    r.MoveJ(punto_paso)
+
+    Place_tapa2(robot)
+
+    r.setPoseFrame(frame_robot)
+    r.MoveJ(safe)
+
+    RDK.setParam('Conti_T', '1')
+
+
+PickAndPlace_tapa_tipo2(robot)

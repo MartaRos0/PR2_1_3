@@ -1,0 +1,177 @@
+import time
+
+from robodk import robolink    # RoboDK API
+from robodk import robomath    # Robot toolbox
+from robolink import *
+RDK = robolink.Robolink()
+
+"""
+Stack Tecnológico: Python 3, RoboDK API.
+Descripción: Script cinemático del Robot 1 (UR3e de Cogida). 
+Contiene las rutinas de movimiento exactas (MoveJ, MoveL) para
+coger bolsas de las estaciones secundarias y dejarlas en las cajas.
+"""
+
+robot = RDK.Item('r_UR3e_(COGIDA)', robolink.ITEM_TYPE_ROBOT)
+tool = RDK.Item('VENTOSA-COG', robolink.ITEM_TYPE_TOOL)
+
+#FRAMES
+frame_robot = RDK.Item('UR3e_Base', robolink.ITEM_TYPE_FRAME) #Estan los targets basicos (home, safe, pp)
+frame_zt_rb1 = RDK.Item('ROBOT1', robolink.ITEM_TYPE_FRAME)
+frame_at_1_rb1 = RDK.Item('Frame PEDESTAL (OBJETO 1)', robolink.ITEM_TYPE_FRAME)
+frame_at_1_rb1_cog = RDK.Item('COGIDA_1', robolink.ITEM_TYPE_FRAME)
+
+frame_cinta = RDK.Item('FrameCintaP', robolink.ITEM_TYPE_FRAME)
+frame_cinta_aprox = RDK.Item('COGIDA CINTA', robolink.ITEM_TYPE_FRAME)
+frame_cinta_b1 = RDK.Item('DEJAR_BOLSA1', robolink.ITEM_TYPE_FRAME)
+frame_cinta_b2 = RDK.Item('DEJAR_BOLSA2', robolink.ITEM_TYPE_FRAME)
+
+
+#TARGETS
+home = RDK.Item('HOME_R1', robolink.ITEM_TYPE_TARGET)
+safe = RDK.Item('SAFE_R1', robolink.ITEM_TYPE_TARGET)
+punto_paso = RDK.Item('PUNTO_PASO_R1', robolink.ITEM_TYPE_TARGET)
+
+pick_bolsa_1 = RDK.Item('PICK_1', robolink.ITEM_TYPE_TARGET)
+prepick_bolsa_1 = RDK.Item('PREPICK_1', robolink.ITEM_TYPE_TARGET)
+
+llegada_caja = RDK.Item('LLEGADA', robolink.ITEM_TYPE_TARGET)
+llegada_caja_b1_preplace = RDK.Item('PREPLACE_BOLSA1', robolink.ITEM_TYPE_TARGET)
+llegada_caja_b1_place = RDK.Item('PLACE_BOLSA1', robolink.ITEM_TYPE_TARGET)
+llegada_caja_b2_preplace = RDK.Item('PREPLACE_BOLSA2', robolink.ITEM_TYPE_TARGET)
+llegada_caja_b2_place = RDK.Item('PLACE_BOLSA2', robolink.ITEM_TYPE_TARGET)
+
+#VARIABLES
+
+
+# Asignar la herramienta al robot
+robot.setTool(tool)
+
+def Pick_b1(r):
+    """
+    Realiza la maniobra de aproximación, cogida y retroceso de una Bolsa Tipo 1.
+    Espera a que el dispensador genere la bolsa antes de iniciar el movimiento.
+    Adjunta el objeto 3D a la herramienta (ventosa).
+
+    r (Item): El objeto robot de RoboDK que realizará el movimiento.
+    """
+    while int(RDK.getParam('BOLSA1_PICK')) != 1:
+        time.sleep(0.1)
+
+    velocidad_lineal = 150
+    robot.setSpeed(velocidad_lineal)
+
+    r.setPoseFrame(frame_at_1_rb1_cog)
+    r.MoveJ(prepick_bolsa_1)
+
+    velocidad_lineal = 50
+    r.setSpeed(velocidad_lineal)
+
+    r.MoveL(pick_bolsa_1)
+
+    #ADJUNTAR OBJETO A VENTOSA
+    tool.AttachClosest()
+
+    RDK.setParam('BOLSA1_PICK', '0')
+    r.Pause(1000)
+    r.MoveL(prepick_bolsa_1)
+
+    velocidad_lineal = 200
+    robot.setSpeed(velocidad_lineal)
+
+
+def Place_bolsa1_tipo1(r):
+    """
+    Realiza la maniobra de posicionamiento y liberación (Place) de la Bolsa Tipo 1 
+    en el compartimento 2 de la caja (por requisitos del Tipo 1).
+    Detacha la bolsa de la ventosa al Frame de la caja.
+    """
+    RDK.RunProgram('DISPENSAR_B1', False)
+
+    r.setPoseFrame(frame_cinta_aprox)
+    r.MoveJ(llegada_caja)
+
+    r.setPoseFrame(frame_cinta_b2)
+    r.MoveL(llegada_caja_b2_preplace)
+
+    velocidad_lineal = 50
+    r.setSpeed(velocidad_lineal)
+
+    r.MoveL(llegada_caja_b2_place)
+
+    #LIBERAR BOLSA
+    frame_destino = RDK.Item('FrameCAJA', ITEM_TYPE_FRAME)
+    tool.DetachAll(frame_destino)
+
+    r.Pause(1000)
+    r.MoveL(llegada_caja_b2_preplace)
+
+    velocidad_lineal = 200
+    r.setSpeed(velocidad_lineal)
+
+
+def Place_bolsa2_tipo1(r):
+    """
+    Realiza la maniobra de posicionamiento y liberación (Place) de la segunda Bolsa 
+    en el compartimento 1 de la caja.
+    """
+    RDK.RunProgram('DISPENSAR_B1', False)
+
+    r.setPoseFrame(frame_cinta_aprox)
+    r.MoveJ(llegada_caja)
+
+    r.setPoseFrame(frame_cinta_b1)
+    r.MoveL(llegada_caja_b1_preplace)
+
+    velocidad_lineal = 50
+    r.setSpeed(velocidad_lineal)
+
+    r.MoveL(llegada_caja_b1_place)
+
+    #LIBERAR BOLSA
+    frame_destino = RDK.Item('FrameCAJA', ITEM_TYPE_FRAME)
+    tool.DetachAll(frame_destino)
+
+    r.Pause(1000)
+    r.MoveL(llegada_caja_b1_preplace)
+
+    velocidad_lineal = 200
+    r.setSpeed(velocidad_lineal)
+
+
+def PickAndPlace_b_tipo1(r):
+    """
+    Rutina completa para empaquetar una Caja Tipo 1.
+    Encadena secuencialmente los movimientos de Home -> Safe -> Pick -> Punto de Paso 
+    -> Place (repetido para las dos bolsas) y devuelve el control a la cinta.
+    """
+    RDK.setParam('Continuar1', '0')
+    
+    r.setPoseFrame(frame_robot)
+
+    r.MoveJ(safe)
+
+    Pick_b1(robot)
+
+    r.setPoseFrame(frame_robot)
+    r.MoveJ(punto_paso)
+
+    Place_bolsa1_tipo1(robot)
+
+    r.setPoseFrame(frame_robot)
+    r.MoveJ(safe)
+
+    Pick_b1(robot)
+
+    r.setPoseFrame(frame_robot)
+    r.MoveJ(punto_paso)
+
+    Place_bolsa2_tipo1(robot)
+
+    r.setPoseFrame(frame_robot)
+    r.MoveJ(safe)
+
+    RDK.setParam('Continuar1', '1')
+
+
+PickAndPlace_b_tipo1(robot)

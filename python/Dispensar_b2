@@ -1,0 +1,67 @@
+from robodk import robolink
+RDKCIRCUIT = robolink.Robolink()
+
+"""
+Stack Tecnológico: Python 3, RoboDK API (robolink).
+Descripción: Script de ejecución lineal. Gestiona la clonación y dispensado 
+visual del objeto 'BOLSA 2' en la estación de suministro, operando la 
+compuerta y la cinta secundaria asociada.
+"""
+
+#----- Constante -----
+NEW_REF_OBJECT_NAME = 'BOLSA 2'
+NEW_OBJECT_NAME = 'BOLSAAA'
+REFERENCE_FRAME = 'CircuitConveyorRef(2)'
+REFERENCE_FRAME_REF = 'CircuitConveyorRef_Init(2)' 
+MECHANISM_NAME = 'CircuitConveyor(2)'
+MECHANISM_NAME_DOOR = 'CircuitConveyorDoor(2)'
+
+PART_TRAVEL_MM = 1430 
+DOOR_TRAVEL_MM = 56
+N_DOOR_TRAVEL_MM = -56
+
+mechanism = RDKCIRCUIT.Item(MECHANISM_NAME,itemtype=robolink.ITEM_TYPE_ROBOT)
+door = RDKCIRCUIT.Item(MECHANISM_NAME_DOOR,itemtype=robolink.ITEM_TYPE_ROBOT)
+
+#------- Programa ------
+frame = RDKCIRCUIT.Item(REFERENCE_FRAME, robolink.ITEM_TYPE_FRAME)
+frame_ref = RDKCIRCUIT.Item(REFERENCE_FRAME_REF, robolink.ITEM_TYPE_FRAME)
+ref_obj = RDKCIRCUIT.Item(NEW_REF_OBJECT_NAME, robolink.ITEM_TYPE_OBJECT)
+
+
+if mechanism.Valid():
+    mechanism.setJoints([0])
+
+if frame.Valid():
+    for item in frame.Childs():
+        if item.Type() == robolink.ITEM_TYPE_OBJECT:
+            item.Delete()
+
+RDKCIRCUIT.Render(False)
+
+for item in frame_ref.Childs():
+    if frame.Valid() and  ref_obj.Valid():
+        item.Copy()
+        new_obj = RDKCIRCUIT.Paste()
+        new_obj.setVisible(False)
+        new_obj.setParent(frame_ref)
+        RDKCIRCUIT.Update()
+        new_obj.setParentStatic(frame)  
+        new_obj.setVisible(True)
+
+RDKCIRCUIT.Render(True)
+
+if door.Valid():
+    door.setJoints([0])
+
+if door.Valid():
+    door.MoveJ(door.Joints() + DOOR_TRAVEL_MM)
+
+if mechanism.Valid():
+    mechanism.MoveJ(mechanism.Joints() + PART_TRAVEL_MM)
+
+if door.Valid():
+    door.MoveJ(door.Joints() + N_DOOR_TRAVEL_MM)
+    
+RDKCIRCUIT.setParam('BOLSA2_PICK', '1')
+

@@ -1,0 +1,109 @@
+import paho.mqtt.client as mqtt
+from robodk import robolink
+import json
+import time
+import ssl
+
+RDK = robolink.Robolink()
+
+"""
+Stack Tecnológico: Python, Paho MQTT, ssl, json, RoboDK API.
+Descripción: Script de comunicaciones asíncronas. Mantiene una conexión 
+viva vía WebSockets (WSS) con EMQX para recibir pedidos y órdenes de 
+emergencia desde un ESP32 o Dashboard, y notifica cuando la planta acaba.
+"""
+
+
+broker="broker.emqx.io"
+port=8084
+user="PR2_1_3"
+passwd="public"
+base_topic="PR2_1_3/linea1"
+station_commands_topic=base_topic+"/python"
+station_status_topic=base_topic+"/esp"
+
+def on_connect(client, userdata, flags, reason_code, properties):
+    """
+    Callback disparado automáticamente cuando se establece la conexión con el broker.
+    Se suscribe inmediatamente al topic de escucha (station_status_topic).
+    """
+
+    client.subscribe(station_status_topic, 0)
+
+def on_message(mqttc, obj, msg):
+    """
+    Callback disparado automáticamente cada vez que llega un mensaje al topic.
+    Decodifica el JSON recibido. Si contiene cantidades de cajas, las guarda 
+    en RoboDK. Si es una orden de 'EMPIEZA' o 'EMERGENCIA', activa la estación 
+    o la detiene según corresponda.
+    """
+    payload = msg.payload.decode('utf-8')
+    topic = msg.topic
+    qos = msg.qos
+
+    try:
+        #Convertir en json
+        datos = json.loads(payload)
+
+        if topic == station_status_topic:
+            #Recibir pedidos
+            if "cajas_tipo_1" in datos:
+                cantidad_1 = datos["cajas_tipo_1"]
+                RDK.setParam('TOTAL_PEDIDO_1', str(cantidad_1))
+            
+            if "cajas_tipo_2" in datos:
+                cantidad_2 = datos["cajas_tipo_2"]
+                RDK.setParam('TOTAL_PEDIDO_2', str(cantidad_2))
+
+            #Encender la estacion
+            if "tipo" in datos and datos["tipo"] == "EMPIEZA":
+                RDK.setParam('MQTT_ESTACION_ENCENDIDA', '1')
+                
+                mensaje = json.dumps({"tipo": "PLANTA_ACTIVA"})
+                mqttc.publish(station_commands_topic, mensaje)
+
+            #Boton de emergencia
+            if "aviso" in datos and datos["aviso"] == "EMERGENCIA":
+                RDK.setParam('PARADA_EMERGENCIA', '1')
+            
+    except json.JSONDecodeError:
+        pass
+
+    
+mqttc = mqtt.Client(
+    mqtt.CallbackAPIVersion.VERSION2,
+    transport="websockets",
+    protocol=mqtt.MQTTv311
+)
+
+mqttc.on_connect = on_connect
+mqttc.on_message = on_message
+
+mqttc.username_pw_set(username=user, password=passwd)
+mqttc.ws_set_options(path="/mqtt")
+
+mqttc.tls_set()
+
+mqttc.connect(broker, port, 60)
+
+mqttc.loop_start()
+
+
+#Enviar mensaje que la estacion ya ha acabado
+estado_actual = -1
+estado_anterior = 0
+while True:
+    try:
+        estado_actual = int(RDK.getParam('PARAR_ESTACION'))
+    except:
+        estado_actual = 0
+    
+    if estado_actual == 0 and estado_anterior == 1:
+        mensaje = json.dumps({"tipo": "PLANTA_INACTIVA"})
+        mqttc.publish(station_commands_topic, mensaje)
+        mqttc.loop_stop()
+        mqttc.disconnect()
+        break
+
+    estado_anterior = estado_actual
+    time.sleep(0.5)

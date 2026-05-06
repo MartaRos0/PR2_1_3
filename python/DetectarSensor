@@ -1,0 +1,89 @@
+import time
+from robodk import robolink
+from robodk import robomath
+
+"""
+DetectaSensor.py — Script vigía de fotocélulas.
+Corre como proceso independiente en paralelo con main_produccion.
+Detecta colisiones entre las cajas del FrameCAJA y las tres fotocélulas
+(C, I, T) y actualiza los params SenyalSensor_* en RoboDK.
+Se comunica con el resto de scripts ÚNICAMENTE vía RDK.setParam/getParam.
+"""
+
+RDK = robolink.Robolink()
+
+RDK.COM.settimeout(10)
+
+REFERENCE_FRAME = 'FrameCAJA'  
+
+frame = RDK.Item(REFERENCE_FRAME, robolink.ITEM_TYPE_FRAME)
+
+fotocelulaC = RDK.Item('Fotocelula_C')
+fotocelulaT = RDK.Item('Fotocelula_T')
+fotocelulaI = RDK.Item('Fotocelula_I')
+
+estado_detectadoC = -1
+estado_detectadoT = -1
+estado_detectadoI = -1
+
+if not frame.Valid():
+    raise Exception(f'El frame "{REFERENCE_FRAME}" no es válido o no existe.')
+
+if not fotocelulaC.Valid() or not fotocelulaT.Valid() or not fotocelulaI.Valid():
+    raise Exception('Alguna fotocélula no es válida (revisa los nombres de los ítems).')
+
+while int(RDK.getParam('PARAR_ESTACION')):
+    detectadoC = 0
+    detectadoT = 0
+    detectadoI = 0
+
+    tipo_caja_C = '0'
+    tipo_caja_T = '0'
+    tipo_caja_I = '0'
+
+    for item in frame.Childs():
+        
+        try:
+            if not item.Valid() or item.Type() != robolink.ITEM_TYPE_OBJECT:
+                continue 
+
+            nombre_caja = item.Name().upper()
+
+            #  colisiones y guardamos la caja 
+            if fotocelulaC.Valid() and fotocelulaC.Collision(item):
+                detectadoC = 1
+                if 'CAJA2' in nombre_caja:
+                    tipo_caja_C = '1'
+                    
+            if fotocelulaT.Valid() and fotocelulaT.Collision(item):
+                detectadoT = 1
+                if 'CAJA2' in nombre_caja:
+                    tipo_caja_T = '1'
+                    
+            if fotocelulaI.Valid() and fotocelulaI.Collision(item):
+                detectadoI = 1
+                if 'CAJA2' in nombre_caja:
+                    tipo_caja_I = '1'
+
+        except Exception:
+            continue
+
+
+    RDK.setParam('PP_BOLSA_2',    tipo_caja_C)
+    RDK.setParam('TAPA_BOLSA_2',  tipo_caja_T)
+    RDK.setParam('INS_BOLSA_2',   tipo_caja_I)
+
+    # actualizamos los sensores si cambian
+    if estado_detectadoC != detectadoC:
+        RDK.setParam('SenyalSensor_C', str(detectadoC))
+        estado_detectadoC = detectadoC
+
+    if estado_detectadoT != detectadoT:
+        RDK.setParam('SenyalSensor_T', str(detectadoT))
+        estado_detectadoT = detectadoT
+
+    if estado_detectadoI != detectadoI:
+        RDK.setParam('SenyalSensor_I', str(detectadoI))
+        estado_detectadoI = detectadoI
+
+    time.sleep(0.1)

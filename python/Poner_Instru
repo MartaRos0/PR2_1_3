@@ -1,0 +1,60 @@
+from robodk import robolink
+from robodk import robomath
+RDKCIRCUIT = robolink.Robolink()
+
+"""
+Stack Tecnológico: Python, RoboDK API (robolink, robomath).
+Descripción: Script de ejecución lineal. Simula la inserción automática 
+de las instrucciones de montaje en el interior de las cajas. Mueve el 
+mecanismo de caída y clona visualmente el folleto en el frame destino.
+"""
+
+#----- Constante -----
+NEW_REF_OBJECT_NAME = 'instru'
+NEW_REF_OBJECT_NAME_2 = 'instru_2'
+NEW_OBJECT_NAME = 'instru_c'
+REFERENCE_FRAME = 'FrameCAJA'
+REFERENCE_FRAME_REF = 'FrameInitInstru'
+
+PART_TRAVEL_MM = -163
+MECHANISM_NAME = 'Mecanismo_Caida'
+
+#------- Programa ------
+frame = RDKCIRCUIT.Item(REFERENCE_FRAME, robolink.ITEM_TYPE_FRAME)
+frame_ref = RDKCIRCUIT.Item(REFERENCE_FRAME_REF, robolink.ITEM_TYPE_FRAME)
+ref_obj = RDKCIRCUIT.Item(NEW_REF_OBJECT_NAME, robolink.ITEM_TYPE_OBJECT)
+ref_obj_2 = RDKCIRCUIT.Item(NEW_REF_OBJECT_NAME_2, robolink.ITEM_TYPE_OBJECT)
+
+mechanism = RDKCIRCUIT.Item(MECHANISM_NAME, robolink.ITEM_TYPE_ROBOT)
+
+p2 = int(RDKCIRCUIT.getParam('INS_BOLSA_2'))
+lim = int(RDKCIRCUIT.getParam('lim_ins'))
+
+
+if lim != 0:
+    
+    #INCIAR CAIDA
+    if mechanism.Valid():
+        mechanism.setJoints([0])
+        mechanism.setVisible(True)
+        mechanism.MoveJ(mechanism.Joints() + PART_TRAVEL_MM)
+        
+
+    RDKCIRCUIT.Render(False)
+
+
+    for item in frame_ref.Childs():
+        if frame.Valid() and ref_obj.Valid():
+            item.Copy()
+            new_obj = RDKCIRCUIT.Paste()
+            new_obj.setVisible(False)
+            new_obj.setParent(frame_ref)
+            RDKCIRCUIT.Update()
+            new_obj.setParentStatic(frame)  
+            new_obj.setVisible(True)
+            mechanism.setVisible(False)
+
+
+    RDKCIRCUIT.Render(True)
+
+    RDKCIRCUIT.setParam('Conti_I', '1')
