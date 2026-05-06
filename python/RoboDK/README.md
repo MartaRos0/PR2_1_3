@@ -1,6 +1,12 @@
 # INSTRUCCIONES DE OPERACIÓN
 Este archivo contiene la simulación interactiva del Gemelo Digital de nuestra línea de empaquetado. Aunque el fin del proyecto sea que la simulación RoboDK trabaje junto a una ESP32-S3 y una web para recibir las diferentes acciones de encendido / pedidos, la estación esta disenada para funcionar de forma autónoma recibiendo órdenes desde el exterior mediante el protocolo MQTT.
 
+## IMPORTANTE - Configuración de MQTT 
+Si se quiere probar el funcionamiento sin necesidad de la ESP, se ha adjuntado una imagen llamada ***"config_mqttx"*** mostrando como dejar la conexión en la aplicación **MQTTx**.
+También se recomienda subscribirse a los siguientes topics para ver como trabaja el proceso por dentro al completo:
+   - **`PR2_1_3/linea1/esp`**
+   - **`PR2_1_3/linea1/python`**
+
 ## PASOS PARA ARRANCAR LA ESTACIÓN
 1. Asegurate de tener este proyecto (.rdk) abierto en RoboDK.
 2. En el árbol del proyecto de la izquierda, ejecuta los siguientes tres scripts de Python para que funcionen simultaneamente:
