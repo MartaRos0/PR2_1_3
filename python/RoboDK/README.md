@@ -1,7 +1,7 @@
 # INSTRUCCIONES DE OPERACIÓN
 Este archivo contiene la simulación interactiva del Gemelo Digital de nuestra línea de empaquetado. La estación esta disenada para funcionar de forma autónoma recibiendo órdenes desde el exterior mediante el protocolo MQTT.
 
-## PASOS PARA ARRANCAR LA ESTACÓN
+## PASOS PARA ARRANCAR LA ESTACIÓN
 1. Asegurate de tener este proyecto (.rdk) abierto en RoboDK.
 2. En el árbol del proyecto de la izquierda, ejecuta los siguientes tres scripts de Python para que funcionen simultaneamente:
    - **`MqttListener`**
