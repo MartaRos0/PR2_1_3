@@ -2,6 +2,13 @@
 #ifndef WIFI_CONFIG_H
 #define WIFI_CONFIG_H
 
+/*
+Archivo: wifi.h
+Descripción: Gestión completa de la conexión WiFi del ESP32. Incluye funciones 
+de conexión, reconexión automática y cliente seguro para TLS.
+Centraliza la configuración de red del dispositivo.
+*/
+
 /* Includes ------------------------------------------------------------------*/
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
