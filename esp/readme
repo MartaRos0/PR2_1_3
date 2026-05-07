@@ -1,1 +1,79 @@
+# README-ESP32S3
+## Descripción general
+
+Este modulo contiene el codigo desarrollado para la ESP32-S3, el cual es el encagado de:
+* Leer botones fisicos que actuan como sensores
+* Controlar leds que actuan como actuadores
+* Enviar y recibir mensajes JSON mediante MQTT
+* Ejecutar tareas concurrentes
+* Integrarse con el resto del proyecto
+
+## Estructura del proyecto
+```
+esp32/
+│
+├── src/
+│   ├── main.ino          → Lógica principal, MQTT, FreeRTOS, colas
+│   ├── actuadores.c      → Control de actuadores (LED)
+│   ├── actuadores.h
+│   ├── sensores.c        → Lectura de botones
+|   ├── sensores.h
+|   ├── mqtt.h            → Configuracion de MQTT
+|   ├── wifi.h            → Configuracion de WiFi
+|   ├── config.h 
+│   └── WsClientWrapper.h
+│
+└── README.md             → Este documento
+```
+## Tecnologías utilizadas
+
+* ESP32-S3 como microcontrolador principal
+* Arduino como entorno de desarrollo
+* FreeRTOS para tareas concurrentes
+* MQTT y ArduinoJson para comunicacion entre sistemas
+
+## Funcionamiento general
+
+1. La ESP se conecta a la red WiFi usando las credenciales proporcionadas pro la UPV
+2. Se conecta al broker MQTT, en este caso:
+   * Broker: `broker.emqx.io`
+   * Usuario: `PR2_1_3`
+   * Topic de publicacion `PR2_1_3/linea1/emergencia`
+   * Topic de subscripcion `PR2_1_3/linea1/presencia`
+3. Se crean las tareas FreeRTOS
+   * `emergency_stop_button` que detecta cuando se pulsa el boton de emrgencia
+   * `start_button` que detecta cuando se pulsa el boton de inicio de funcionamiento de la planta
+4. Se envian mensajes JSON
+   * `{"tipo": "EMERGENCIA"}` si se ha pulsado el boton de emergencia
+   * `{"tipo": "EMPIEZA"}` si se ha pulsado el boton de inicio
+5. Se reciben mensajes JSON
+   * `{"tipo": "PLANTA_ACTIVA"}` si la planta ha comenzado su funcionamiento
+   * `{"tipo": "PLANTA_INACTIVA"}` si la planta se ha detenido o ha finalizado su funcionamiento
+   
+## Explicacion de cada archivo
+
+### main.cpp
+Este es el archivo principal y contiene la configuracion del WiFi, del MQTT asi como el callback para los mensajes entrantes y
+una funcion llamada `json_message()` que se encarga de crear los mensajes JSON y meterlos en una cola que ira publicando estos mensajes en el bucle principal (`loop()`).
+En este archivo también se crean las tareas en el apartado anterior encargadas detectar el estado de los sensores (botones).
+
+### actuadoes.c / actuadores.h
+En estos archivos se encuentran la declaracion (`actuadores.h`) e implementacion (`actuadores.c`) de las funciones que se encargan de 
+inicializar (`led_init()`), e indicar el estado en el que se deben de encontrar (`set_led`) de los actuadores (leds que indican si la planta esta activa o inactiva dependiendo del mensaje 
+recibido por el topic subscrito).
+
+### sensores.c / sensores.h
+En estos archivos se encuentran la declaracion (`sensores.h`) e implementacion (`sensores.c`) de las funciones que se encargan de 
+inicializar (`seta_init()`, esta funcion se encaga de inicializar ambos botones a la vez), e indicar en que estado se han encontrado (`get_seta`, para el boton de emergencia y `get_button`, para el boton de inicio) 
+de los sensores (botones que indican si existe alguna emergencia o si la planta debe iniciarse).
+
+## Integracion con el resto del proyecto
+
+RoboDK recibe señales de emergencia o inicio provenientes de la ESP y este envia mensajes de planta activa o inactiva a la ESP
+
+## Autores
+
+Grupo PR2‑13  
+Grado en Informática Industrial y Robótica — UPV  
+Curso 2026
 
