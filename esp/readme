@@ -55,18 +55,20 @@ esp32/
 
 ### main.cpp
 Este es el archivo principal y contiene la configuracion del WiFi, del MQTT asi como el callback para los mensajes entrantes y
-una funcion llamada `json_message()` que se encarga de crear los mensajes JSON y meterlos en una cola que ira publicando estos mensajes en el bucle principal (`loop()`).
-En este archivo también se crean las tareas en el apartado anterior encargadas detectar el estado de los sensores (botones).
+una funcion llamada `json_message()` que se encarga de crear los mensajes JSON y meterlos en una cola que ira publicando estos 
+mensajes en el bucle principal (`loop()`). En este archivo también se crean las tareas en el apartado anterior encargadas detectar 
+el estado de los sensores (botones).
 
 ### actuadoes.c / actuadores.h
 En estos archivos se encuentran la declaracion (`actuadores.h`) e implementacion (`actuadores.c`) de las funciones que se encargan de 
-inicializar (`led_init()`), e indicar el estado en el que se deben de encontrar (`set_led`) de los actuadores (leds que indican si la planta esta activa o inactiva dependiendo del mensaje 
-recibido por el topic subscrito).
+inicializar (`led_init()`), e indicar el estado en el que se deben de encontrar (`set_led`) de los actuadores (leds que indican si la 
+planta esta activa o inactiva dependiendo del mensaje recibido por el topic subscrito).
 
 ### sensores.c / sensores.h
 En estos archivos se encuentran la declaracion (`sensores.h`) e implementacion (`sensores.c`) de las funciones que se encargan de 
-inicializar (`seta_init()`, esta funcion se encaga de inicializar ambos botones a la vez), e indicar en que estado se han encontrado (`get_seta`, para el boton de emergencia y `get_button`, para el boton de inicio) 
-de los sensores (botones que indican si existe alguna emergencia o si la planta debe iniciarse).
+inicializar (`seta_init()`, esta funcion se encaga de inicializar ambos botones a la vez), e indicar en que estado se han encontrado 
+(`get_seta`, para el boton de emergencia y `get_button`, para el boton de inicio) de los sensores (botones que indican si existe alguna 
+emergencia o si la planta debe iniciarse).
 
 ### config.h
 En este archivo se encuentran todas las constantes de configuracion del sistema. Incluye los parametros de conexion WiFi, 
