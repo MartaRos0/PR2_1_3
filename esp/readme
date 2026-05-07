@@ -16,12 +16,12 @@ esp32/
 │   ├── main.ino          → Lógica principal, MQTT, FreeRTOS, colas
 │   ├── actuadores.c      → Control de actuadores (LED)
 │   ├── actuadores.h
-│   ├── sensores.c        → Lectura de botones
+│   ├── sensores.c        → Lectura de sensores (botones)
 |   ├── sensores.h
-|   ├── mqtt.h            → Configuracion de MQTT
-|   ├── wifi.h            → Configuracion de WiFi
+|   ├── mqtt.h            → Gestion de MQTT
+|   ├── wifi.h            → Gestion de WiFi
 |   ├── config.h 
-│   └── WsClientWrapper.h
+│   └── WsClientWrapper.h → Adaptador WebSocket
 │
 └── README.md             → Este documento
 ```
@@ -38,8 +38,9 @@ esp32/
 2. Se conecta al broker MQTT, en este caso:
    * Broker: `broker.emqx.io`
    * Usuario: `PR2_1_3`
-   * Topic de publicacion `PR2_1_3/linea1/emergencia`
-   * Topic de subscripcion `PR2_1_3/linea1/presencia`
+   * Puerto: 8084
+   * Topic de publicacion `PR2_1_3/linea1/esp`
+   * Topic de subscripcion `PR2_1_3/linea1/python`
 3. Se crean las tareas FreeRTOS
    * `emergency_stop_button` que detecta cuando se pulsa el boton de emrgencia
    * `start_button` que detecta cuando se pulsa el boton de inicio de funcionamiento de la planta
