@@ -5,8 +5,7 @@
 /*
 Archivo: mqtt.h
 Descripcion: Gestión de la conexión MQTT sobre WebSocket (WSS port 8084)
-Incluye cola FreeRTOS para publicación thread-safe,
-serialización/deserialización JSON y reconexión automática.
+Incluye cola FreeRTOS, serialización/deserialización JSON y reconexión automática.
 */
 
 /* Includes ------------------------------------------------------------------*/
