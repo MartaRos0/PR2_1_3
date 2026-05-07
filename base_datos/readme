@@ -1,5 +1,5 @@
-#Contenido de la carpeta
-##Sistema de Gestión de Producción y Base de Datos
+# Contenido de la carpeta
+## Sistema de Gestión de Producción y Base de Datos
 
 Proyecto desarrollado en **Python** y **PostgreSQL** para la gestión automatizada de una línea de producción mediante integración con **RoboDK**.
 
