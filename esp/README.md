@@ -105,7 +105,7 @@ RoboDK recibe señales de emergencia o inicio provenientes de la ESP y este envi
   * Arduino IDE con configuracion de la ESP32-S3
 
 ### Librerias externas (necesarias de instalar)
-  * WebSockets - Markus Sattler ( WebSocketsClient.h viene de esta libreria, no es necesario intalar nada mas )
+  * WebSockets - Markus Sattler ( WebSocketsClient.h viene de esta libreria, no es necesario intalar nada mas ) si no se encuentra, este es el repositorio   del zip: https://github.com/Links2004/arduinoWebSockets
   * PubSubClient - Nick O'Leary
   * ArduinoJson - Benoit Blanchon
 
