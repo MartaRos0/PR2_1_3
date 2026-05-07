@@ -2,6 +2,12 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+/*
+Archivo: config.h
+Descripción: Archivo central de configuración del proyecto. Contiene constantes,
+credenciales, parámetros globales y ajustes generales del sistema.
+*/
+
 /* Comm -----------------------------------------------------------------------*/
 #define BAUDS 115200
 
