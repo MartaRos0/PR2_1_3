@@ -12,18 +12,16 @@ Este modulo contiene el codigo desarrollado para la ESP32-S3, el cual es el enca
 ```
 esp32/
 │
-├── src/
-│   ├── main.ino          → Lógica principal, MQTT, FreeRTOS, colas
-│   ├── actuadores.c      → Control de actuadores (LED)
-│   ├── actuadores.h
-│   ├── sensores.c        → Lectura de sensores (botones)
-|   ├── sensores.h
-|   ├── mqtt.h            → Gestion de MQTT
-|   ├── wifi.h            → Gestion de WiFi
-|   ├── config.h 
-│   └── WsClientWrapper.h → Adaptador WebSocket
-│
-└── README.md             → Este documento
+├── main.ino          → Lógica principal, MQTT, FreeRTOS, colas
+├── actuadores.c      → Control de actuadores (LED)
+├── actuadores.h
+├── sensores.c        → Lectura de sensores (botones)
+├── sensores.h
+├── mqtt.h            → Gestion de MQTT
+├── wifi.h            → Gestion de WiFi
+├── config.h          → Variables Globales
+├── WsClientWrapper.h → Adaptador WebSocket
+└── README.md         → Este documento
 ```
 ## Tecnologías utilizadas
 
