@@ -1,5 +1,8 @@
-
 #Contenido de la carpeta
-Este proyecto contiene la estructura completa de una base de datos PostgreSQL(DDL_proyecto.db) junto con un script 
-en Python (Base_datos) encargado de gestionar el control de producción, stock y registro automático de cajas
-mediante integración con RoboDK.
+##Sistema de Gestión de Producción y Base de Datos
+
+Proyecto desarrollado en **Python** y **PostgreSQL** para la gestión automatizada de una línea de producción mediante integración con **RoboDK**.
+
+El sistema permite controlar el stock, registrar cajas fabricadas, gestionar pedidos y monitorizar la producción en tiempo real.
+
+---
