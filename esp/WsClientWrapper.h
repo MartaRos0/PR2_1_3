@@ -35,7 +35,6 @@ public:
     return c;
   }
 
-  // ← esta es la que faltaba: read(buf, size)
   int read(uint8_t *buf, size_t size) override
   {
     int i = 0;
