@@ -1,3 +1,10 @@
+/*
+Archivo: main.ino
+Descripcion: Programa principal. Inicializa el sistema, crea las tareas FreeRTOS
+para la lectura de botones y ejecuta el loop principal de MQTT.
+*/
+
+
 /* Includes ------------------------------------------------------------------*/
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
