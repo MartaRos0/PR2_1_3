@@ -1,0 +1,86 @@
+CREATE SCHEMA PR2_1_3;
+SET search_path TO PR2_1_3;
+
+CREATE TABLE Proveedor (
+    NIF VARCHAR(15) PRIMARY KEY,
+    Nombre VARCHAR(100) NOT NULL,
+    Pais_Origen VARCHAR(50)
+);
+
+CREATE TABLE Telefono_Proveedor (
+    NIF CHAR(15),
+    Telefono VARCHAR(20),
+    PRIMARY KEY (NIF, Telefono),
+    FOREIGN KEY (NIF) REFERENCES Proveedor(NIF)
+);
+
+CREATE TABLE Componente (
+    Codigo CHAR(20) PRIMARY KEY,
+    Nombre VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE Almacen (
+    Codigo CHAR(20) PRIMARY KEY,
+    Stock_Actual INT,
+    Stock_Minimo INT UNIQUE NOT NULL,
+    FOREIGN KEY (Codigo) REFERENCES Componente(Codigo)
+);
+
+CREATE TABLE Suministra (
+    Codigo CHAR(20),
+    NIF CHAR(15),
+    Precio_Compra NUMERIC(10,2),
+    PRIMARY KEY (Codigo, NIF),
+    FOREIGN KEY (Codigo) REFERENCES Componente(Codigo),
+    FOREIGN KEY (NIF) REFERENCES Proveedor(NIF)
+);
+
+CREATE TABLE Caja (
+    ID CHAR(20) PRIMARY KEY,
+    Tipo VARCHAR(50) NOT NULL,
+    Precio_Fabricacion NUMERIC(10,2) NOT NULL,
+    Acabada BOOL NOT NULL
+);
+
+CREATE TABLE Tipo_Caja (
+    Codigo CHAR(20) PRIMARY KEY,
+    Stock_Actual INT,
+    Stock_Minimo INT UNIQUE NOT NULL
+);
+
+CREATE TABLE Caja_Tipo (
+    ID CHAR(20),
+    Codigo CHAR(20),
+    PRIMARY KEY (ID, Codigo),
+    FOREIGN KEY (ID) REFERENCES Caja(ID),
+    FOREIGN KEY (Codigo) REFERENCES Tipo_Caja(Codigo)
+);
+
+CREATE TABLE Cliente (
+    DNI_CIF CHAR(15) PRIMARY KEY,
+    Nombre VARCHAR(100) NOT NULL,
+    Direccion_Envio VARCHAR(200) NOT NULL
+);
+
+CREATE TABLE Telefono_Cliente (
+    DNI_CIF CHAR(15),
+    Telefono VARCHAR(20),
+    PRIMARY KEY (DNI_CIF, Telefono),
+    FOREIGN KEY (DNI_CIF) REFERENCES Cliente(DNI_CIF)
+);
+
+CREATE TABLE Pedido (
+    Numero_Localizador CHAR(20) PRIMARY KEY,
+    Fecha_Pedido DATE NOT NULL,
+    DNI_CIF CHAR(15) NOT NULL,
+    FOREIGN KEY (DNI_CIF) REFERENCES Cliente(DNI_CIF)
+);
+
+CREATE TABLE Pedido_Caja (
+    Numero_Localizador CHAR(20),
+    ID_Caja CHAR(20),
+    Cantidad INT NOT NULL,
+    PRIMARY KEY (Numero_Localizador, ID_Caja),
+    FOREIGN KEY (Numero_Localizador) REFERENCES Pedido(Numero_Localizador),
+    FOREIGN KEY (ID_Caja) REFERENCES Caja(ID)
+);
