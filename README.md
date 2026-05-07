@@ -15,6 +15,7 @@ El sistema integra control de producción, comunicación con hardware, gestión 
 ├──  base_datos/      # Scripts SQL y gestión de base de datos
 ├──  esp/             # Código del microcontrolador ESP32
 ├──  python/          # Scripts principales de control y automatización
+├──  web/             # Como extra se ha implementado una web
 └── README.md
 ```
 
