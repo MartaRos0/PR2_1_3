@@ -79,8 +79,7 @@ el modulo WiFi y establece la conexion con la red, mientras que `wifi_reconnect(
 perdida. La funcion `wifi_loop()` se llama periodicamente para comprobar que la conexion no se haya caido.
 
 ### mqtt.h
-En este archivo se ha requerido de ayuda de la IA para poder implementarlo, ya que contenia contenido no dado en las clases
-de la asignatura. En este se encuentran todas las funciones relacionadas con la comunicacion MQTT. La funcion `mqtt_connect()`inicializa
+En este se encuentran todas las funciones relacionadas con la comunicacion MQTT. La funcion `mqtt_connect()` inicializa
 la cola FreeRTOS, configura la conexion WebSocket y establece la conexion con el broker. La funcion `mqtt_loop()` se llama periodicamente
 y se encarga de mantener la conexion y vaciar la cola de mensajes. El callback `onMessage()` procesa los mensajes entrantes. La funcion 
 `json_message()` serializa un mensaje JSON y lo introduce en una cola para su publicacion.
