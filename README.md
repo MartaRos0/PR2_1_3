@@ -10,17 +10,17 @@ El sistema integra control de producción, comunicación con hardware, gestión 
 # Estructura del proyecto
 
 ```bash
-📁 proyecto/
+ proyecto/
 │
-├── 📁 base_datos/      # Scripts SQL y gestión de base de datos
-├── 📁 esp/             # Código del microcontrolador ESP32
-├── 📁 python/          # Scripts principales de control y automatización
+├──  base_datos/      # Scripts SQL y gestión de base de datos
+├──  esp/             # Código del microcontrolador ESP32
+├──  python/          # Scripts principales de control y automatización
 └── README.md
 ```
 
 ---
 
-# ⚙️ Tecnologías utilizadas
+#  Tecnologías utilizadas
 
 -  Python 3
 -  PostgreSQL
