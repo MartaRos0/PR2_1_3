@@ -3,6 +3,12 @@
 #include <Arduino.h>
 #include "actuadores.h"
 
+/*
+Archivo: actuadores.c
+Descripción: Implementación de las funciones de control de actuadores. Gestiona
+el encendido, apagado e inicializacion salidas digitales.
+*/
+
 /* Private define ------------------------------------------------------------*/
 #define LED_PIN   4
 
