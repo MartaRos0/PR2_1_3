@@ -2,6 +2,12 @@
 #ifndef SENSORES_H
 #define SENSORES_H
 
+/*
+Archivo: sensores.h
+Descripción: Declaración de funciones para leer sensores físicos del sistema,
+como botones, entradas digitales y señales de estado.
+*/
+
 #ifdef __cplusplus
  extern "C" {
 #endif
