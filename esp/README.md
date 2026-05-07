@@ -85,8 +85,7 @@ y se encarga de mantener la conexion y vaciar la cola de mensajes. El callback `
 `json_message()` serializa un mensaje JSON y lo introduce en una cola para su publicacion.
 
 ### WsClientWrapper.h
-Este archivo, es un codigo que ha sido proporcionado por la IA para ayudarnos a poder realizar las conexiones y enviar mensajes por
-el puerto 8084. En este se define la clase `WsClientWrapper` que actua como adaptador entre la libreria WebSocketsClient y la interfaz 
+En este se define la clase `WsClientWrapper` que actua como adaptador entre la libreria WebSocketsClient y la interfaz 
 Client de Arduino. Esto es necesario ya que PubSubClient espera recibir un objeto de tipo Client para comunicarse, pero WebSocketsClient 
 no hereda de esa interfaz directamente. Este adaptador implementa las funciones de lectura y escritura necesarias, redirigiendo los datos
 a traves del WebSocket, permitiendo asi que PubSubClient funcione.
