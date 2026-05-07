@@ -1,0 +1,122 @@
+# README-ESP32S3
+## Descripción general
+
+Este modulo contiene el codigo desarrollado para la ESP32-S3, el cual es el encagado de:
+* Leer botones fisicos que actuan como sensores
+* Controlar leds que actuan como actuadores
+* Enviar y recibir mensajes JSON mediante MQTT
+* Ejecutar tareas concurrentes
+* Integrarse con el resto del proyecto
+
+## Estructura del proyecto
+```
+esp32/
+│
+├── src/
+│   ├── main.ino          → Lógica principal, MQTT, FreeRTOS, colas
+│   ├── actuadores.c      → Control de actuadores (LED)
+│   ├── actuadores.h
+│   ├── sensores.c        → Lectura de sensores (botones)
+|   ├── sensores.h
+|   ├── mqtt.h            → Gestion de MQTT
+|   ├── wifi.h            → Gestion de WiFi
+|   ├── config.h 
+│   └── WsClientWrapper.h → Adaptador WebSocket
+│
+└── README.md             → Este documento
+```
+## Tecnologías utilizadas
+
+* ESP32-S3 como microcontrolador principal
+* Arduino como entorno de desarrollo
+* FreeRTOS para tareas concurrentes
+* MQTT y ArduinoJson para comunicacion entre sistemas
+
+## Funcionamiento general
+
+1. La ESP se conecta a la red WiFi usando las credenciales proporcionadas pro la UPV
+2. Se conecta al broker MQTT, en este caso:
+   * Broker: `broker.emqx.io`
+   * Usuario: `PR2_1_3`
+   * Puerto: 8084
+   * Topic de publicacion `PR2_1_3/linea1/esp`
+   * Topic de subscripcion `PR2_1_3/linea1/python`
+3. Se crean las tareas FreeRTOS
+   * `emergency_stop_button` que detecta cuando se pulsa el boton de emrgencia
+   * `start_button` que detecta cuando se pulsa el boton de inicio de funcionamiento de la planta
+4. Se envian mensajes JSON
+   * `{"tipo": "EMERGENCIA"}` si se ha pulsado el boton de emergencia
+   * `{"tipo": "EMPIEZA"}` si se ha pulsado el boton de inicio
+5. Se reciben mensajes JSON
+   * `{"tipo": "PLANTA_ACTIVA"}` si la planta ha comenzado su funcionamiento
+   * `{"tipo": "PLANTA_INACTIVA"}` si la planta se ha detenido o ha finalizado su funcionamiento
+   
+## Explicacion de cada archivo
+
+### main.cpp
+Este es el archivo principal y contiene el `setup()` que gestiona la conexión wifi y mqtt, así como inicializa los sensores, actuadores y tareas. 
+También encontramos el `loop()` que mantiene la conexión wifi y mqtt. En este archivo también se crean las tareas `emergency_stop_button()`, 
+tarea que se encarga de mirar el estado del botón que indica si la planta tiene que detenerse o no, y `star_button()`, tarea que se encarga de 
+mirar el estado del botón que indica si la plante se ha iniciado o no.
+
+### actuadoes.c / actuadores.h
+En estos archivos se encuentran la declaracion (`actuadores.h`) e implementacion (`actuadores.c`) de las funciones que se encargan de 
+inicializar (`led_init()`), e indicar el estado en el que se deben de encontrar (`set_led`) de los actuadores (leds que indican si la 
+planta esta activa o inactiva dependiendo del mensaje recibido por el topic subscrito).
+
+### sensores.c / sensores.h
+En estos archivos se encuentran la declaracion (`sensores.h`) e implementacion (`sensores.c`) de las funciones que se encargan de 
+inicializar (`seta_init()`, esta funcion se encaga de inicializar ambos botones a la vez), e indicar en que estado se han encontrado 
+(`get_seta`, para el boton de emergencia y `get_button`, para el boton de inicio) de los sensores (botones que indican si existe alguna 
+emergencia o si la planta debe iniciarse).
+
+### config.h
+En este archivo se encuentran todas las constantes de configuracion del sistema. Incluye los parametros de conexion WiFi, 
+broker MQTT, topics de publicacion y subscripcion, pines hardware, y parametros de la cola. Se a centralizado para que sea
+mas facil su modificacion.
+
+### wifi.h
+En este archivo se encuentran las funciones encargadas de gestionar la conexion WiFi. La funcion `wifi_connect()`inicializa
+el modulo WiFi y establece la conexion con la red, mientras que `wifi_reconnect()` se encarga de reintentar la conexion en caso de
+perdida. La funcion `wifi_loop()` se llama periodicamente para comprobar que la conexion no se haya caido.
+
+### mqtt.h
+En este archivo se ha requerido de ayuda de la IA para poder implementarlo, ya que contenia contenido no dado en las clases
+de la asignatura. En este se encuentran todas las funciones relacionadas con la comunicacion MQTT. La funcion `mqtt_connect()`inicializa
+la cola FreeRTOS, configura la conexion WebSocket y establece la conexion con el broker. La funcion `mqtt_loop()` se llama periodicamente
+y se encarga de mantener la conexion y vaciar la cola de mensajes. El callback `onMessage()` procesa los mensajes entrantes. La funcion 
+`json_message()` serializa un mensaje JSON y lo introduce en una cola para su publicacion.
+
+### WsClientWrapper.h
+Este archivo, es un codigo que ha sido proporcionado por la IA para ayudarnos a poder realizar las conexiones y enviar mensajes por
+el puerto 8084. En este se define la clase `WsClientWrapper` que actua como adaptador entre la libreria WebSocketsClient y la interfaz 
+Client de Arduino. Esto es necesario ya que PubSubClient espera recibir un objeto de tipo Client para comunicarse, pero WebSocketsClient 
+no hereda de esa interfaz directamente. Este adaptador implementa las funciones de lectura y escritura necesarias, redirigiendo los datos
+a traves del WebSocket, permitiendo asi que PubSubClient funcione.
+
+## Integracion con el resto del proyecto
+
+RoboDK recibe señales de emergencia o inicio provenientes de la ESP y este envia mensajes de planta activa o inactiva a la ESP
+
+## Guia de compilacion
+### Requisitos previos
+  * PC con Windows, Linux o macOS
+  * Cable USB-C para conectar el ESP32-S3
+  * Arduino IDE con configuracion de la ESP32-S3
+
+### Librerias externas (necesarias de instalar)
+  * WebSockets - Markus Sattler ( WebSocketsClient.h viene de esta libreria, no es necesario intalar nada mas )
+  * PubSubClient - Nick O'Leary
+  * ArduinoJson - Benoit Blanchon
+
+### Librerias interna (no necesarias de instalar)
+  * WiFi.h
+  * WiFiClientSecure.h
+
+Si no se esta conectado a la red de la UPV, cambiar los parametros de NET_SSID y NET_PASSWD por la red que se vaya a usar.
+
+## Autores
+
+Grupo PR2‑13  
+Grado en Informática Industrial y Robótica — UPV  
+Curso 2026
