@@ -5,7 +5,7 @@
 /*
 Archivo: sensores.h
 Descripción: Declaración de funciones para leer sensores físicos del sistema,
-como botones, entradas digitales y señales de estado.
+como botones.
 */
 
 #ifdef __cplusplus
