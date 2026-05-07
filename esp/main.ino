@@ -26,7 +26,7 @@ static TaskHandle_t start_button_handle = NULL;
 void emergency_stop_button(void *parameter);
 void start_button(void *parameter);
 
-void setup()
+void setup() // Inicializa pines, gestiona conexiones y crea tareas
 {
   Serial.begin(BAUDS);
   led_init();
@@ -40,9 +40,9 @@ void setup()
   Serial.println("Tareas creadas");
 }
 
-void emergency_stop_button(void *parameter)
+void emergency_stop_button(void *parameter) // Detecta pulsos del boton de emergencia
 {
-  bool state_before = false;
+  bool state_before = false; 
   for (;;)
   {
     bool state = get_seta();
@@ -56,7 +56,7 @@ void emergency_stop_button(void *parameter)
   }
 }
 
-void start_button(void *parameter)
+void start_button(void *parameter)  // Detecta pulsos del boton de incio 
 {
   bool state_before = false;
   for (;;)
@@ -72,7 +72,7 @@ void start_button(void *parameter)
   }
 }
 
-void loop()
+void loop() // Mantiene conexiones
 {
   wifi_loop();
   mqtt_loop();
