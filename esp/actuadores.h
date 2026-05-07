@@ -2,6 +2,12 @@
 #ifndef ACTUADORES_H
 #define ACTUADORES_H
 
+/*
+Archivo: actuadores.h
+Descripción: Declaración de funciones para controlar actuadores físicos,
+como LEDs.
+*/
+
 #ifdef __cplusplus
  extern "C" {
 #endif
