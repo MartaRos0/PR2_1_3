@@ -116,7 +116,7 @@ RoboDK recibe señales de emergencia o inicio provenientes de la ESP y este envi
 Si no se esta conectado a la red de la UPV, cambiar los parametros de NET_SSID y NET_PASSWD por la red que se vaya a usar.
 
 ## Autores
-
-Grupo PR2‑13  
+SoniaS. Galeas, Marcos Mérida, Lucía Remolar y Marta Ros
+Grupo PR2‑1-3  
 Grado en Informática Industrial y Robótica — UPV  
 Curso 2026
