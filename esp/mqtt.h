@@ -103,7 +103,7 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length)  // Callback
     if (mqttClient.connect(client_id.c_str(), MQTT_USERNAME, MQTT_PASSWORD))  // Se intenta conectar al mqtt con la ID y las credenciales
     {
       Serial.println("Broker MQTT conectado");
-      mqttClient.subscribe(TOPIC_SUB);          // Se suscribe al topic
+      mqttClient.subscribe(TOPIC_SUB);          // Se susbcribe al topic
       Serial.println("Subscribed to: " TOPIC_SUB);
       json_message(TOPIC_PUB, "Hi, I'm ESP ^^"); // Publica primer mensaje
     }
