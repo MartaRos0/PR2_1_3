@@ -8,12 +8,12 @@
 
 /* Exported functions --------------------------------------------------------*/
 
-void led_init(void)
+void led_init(void)      // Funcion para inicialiar el led en modo OUTPUT (salida)
 {
   pinMode(LED_PIN, OUTPUT);
 }
 
-void set_led(bool state)
+void set_led(bool state)      // Funcion que dependiendo del parametro que se le añada (true o false) se enciende o apaga el led.
 {
   if (state)
   {
