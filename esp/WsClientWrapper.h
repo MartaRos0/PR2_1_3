@@ -1,7 +1,12 @@
-// WsClientWrapper.h
 #pragma once
 #include <WebSocketsClient.h>
 #include <Client.h>
+
+/*
+Archivo: WsClientWrapper.h
+Descripcion: Wrapper que adapta WebSocketsClient a la interfaz Client de Arduino,
+permitiendo su uso con PubSubClient sobre WebSocket seguro (WSS).
+*/
 
 class WsClientWrapper : public Client
 {
