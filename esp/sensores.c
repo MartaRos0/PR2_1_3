@@ -1,13 +1,13 @@
-/* Includes ------------------------------------------------------------------*/
-#include <stdio.h>
-#include <Arduino.h>
-#include "actuadores.h"
-
 /*
 Archivo: sensores.c
 Descripción: Implementación de las funciones de lectura de sensores. Proporciona
 acceso a los valores de botones.
 */
+
+/* Includes ------------------------------------------------------------------*/
+#include <stdio.h>
+#include <Arduino.h>
+#include "actuadores.h"
 
 /* Private define ------------------------------------------------------------*/
 #define SETA_PIN  18
