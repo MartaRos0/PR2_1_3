@@ -9,26 +9,26 @@
 
 /* Exported functions --------------------------------------------------------*/
 
-void seta_init(void)
+void seta_init(void) // Funcion que inicializa ambos botones en modo INPUT (entrada)
 {
-  pinMode(SETA_PIN, INPUT_PULLUP);
+  pinMode(SETA_PIN, INPUT_PULLUP);    // El modo se encuentra en INPUT_PULLUP para evitar estados flotantes y falsos positivos.
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 }
 
-bool get_seta(void)
+bool get_seta(void)    // Funcion del boton de emergencia que develve un balor boleano dependiendo de que como se encuentre el estado del boton
 {
-  int value = digitalRead(SETA_PIN);
-  if(value == 0)
+  int value = digitalRead(SETA_PIN); // Lee el estado del pin
+  if(value == 0)      // Si esta pulsado devuelve true
   {
     return true;
   }
-  else
+  else                // Si no esta pulsado, devuelve false
   {
     return false;
   }
 }
 
-bool get_button(void)
+bool get_button(void) // Funcion del boton de inicio de la planta que sigue la misma logica que la funcion anterior
 {
   int value = digitalRead(BUTTON_PIN);
   if(value == 0)
