@@ -68,6 +68,30 @@ En estos archivos se encuentran la declaracion (`sensores.h`) e implementacion (
 inicializar (`seta_init()`, esta funcion se encaga de inicializar ambos botones a la vez), e indicar en que estado se han encontrado (`get_seta`, para el boton de emergencia y `get_button`, para el boton de inicio) 
 de los sensores (botones que indican si existe alguna emergencia o si la planta debe iniciarse).
 
+### config.h
+En este archivo se encuentran todas las constantes de configuracion del sistema. Incluye los parametros de conexion WiFi, 
+broker MQTT, topics de publicacion y subscripcion, pines hardware, y parametros de la cola. Se a centralizado para que sea
+mas facil su modificacion.
+
+### wifi.h
+En este archivo se encuentran las funciones encargadas de gestionar la conexion WiFi. La funcion `wifi_connect()`inicializa
+el modulo WiFi y establece la conexion con la red, mientras que `wifi_reconnect()` se encarga de reintentar la conexion en caso de
+perdida. La funcion `wifi_loop()` se llama periodicamente para comprobar que la conexion no se haya caido.
+
+### mqtt.h
+En este archivo se ha requerido de ayuda de la IA para poder implementarlo, ya que contenia contenido no dado en las clases
+de la asignatura. En este se encuentran todas las funciones relacionadas con la comunicacion MQTT. La funcion `mqtt_connect()`inicializa
+la cola FreeRTOS, configura la conexion WebSocket y establece la conexion con el broker. La funcion `mqtt_loop()` se llama periodicamente
+y se encarga de mantener la conexion y vaciar la cola de mensajes. El callback `onMessage()` procesa los mensajes entrantes. La funcion 
+`json_message()` serializa un mensaje JSON y lo introduce en una cola para su publicacion.
+
+### WsClientWrapper.h
+Este archivo, es un codigo que ha sido proporcionado por la IA para ayudarnos a poder realizar las conexiones y enviar mensajes por
+el puerto 8084. En este se define la clase `WsClientWrapper` que actua como adaptador entre la libreria WebSocketsClient y la interfaz 
+Client de Arduino. Esto es necesario ya que PubSubClient espera recibir un objeto de tipo Client para comunicarse, pero WebSocketsClient 
+no hereda de esa interfaz directamente. Este adaptador implementa las funciones de lectura y escritura necesarias, redirigiendo los datos
+a traves del WebSocket, permitiendo asi que PubSubClient funcione.
+
 ## Integracion con el resto del proyecto
 
 RoboDK recibe señales de emergencia o inicio provenientes de la ESP y este envia mensajes de planta activa o inactiva a la ESP
