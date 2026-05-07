@@ -77,11 +77,17 @@ RoboDK recibe señales de emergencia o inicio provenientes de la ESP y este envi
   * PC con Windows, Linux o macOS
   * Cable USB-C para conectar el ESP32-S3
   * Arduino IDE con configuracion de la ESP32-S3
-### Librerias externas
-  * WebSockets - Markus Sattler
+
+### Librerias externas (necesarias de instalar)
+  * WebSockets - Markus Sattler ( WebSocketsClient.h viene de esta libreria, no es necesario intalar nada mas )
   * PubSubClient - Nick O'Leary
   * ArduinoJson - Benoit Blanchon
 
+### Librerias interna (no necesarias de instalar)
+  * WiFi.h
+  * WiFiClientSecure.h
+
+Si no se esta conectado a la red de la UPV, cambiar los parametros de NET_SSID y NET_PASSWD por la red que se vaya a usar.
 
 ## Autores
 
