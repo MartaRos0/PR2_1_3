@@ -72,6 +72,17 @@ de los sensores (botones que indican si existe alguna emergencia o si la planta 
 
 RoboDK recibe señales de emergencia o inicio provenientes de la ESP y este envia mensajes de planta activa o inactiva a la ESP
 
+## Guia de compilacion
+### Requisitos previos
+  * PC con Windows, Linux o macOS
+  * Cable USB-C para conectar el ESP32-S3
+  * Arduino IDE con configuracion de la ESP32-S3
+### Librerias externas
+  * WebSockets - Markus Sattler
+  * PubSubClient - Nick O'Leary
+  * ArduinoJson - Benoit Blanchon
+
+
 ## Autores
 
 Grupo PR2‑13  
