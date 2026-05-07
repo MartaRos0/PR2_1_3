@@ -19,6 +19,7 @@ serialización/deserialización JSON y reconexión automática.
 #include "actuadores.h"
 
 /* Private types -------------------------------------------------------------*/
+// Estructura del mensaje para la cola
 typedef struct {
   char topic[TOPIC_LEN];
   char serialize_msg[MSG_LEN];
@@ -36,7 +37,7 @@ unsigned int  mqttServerPort = MQTT_SERVER_PORT;
 
 /* Functions -----------------------------------------------------------------*/
 
-void json_message(const char *topic, const char *tipo)
+void json_message(const char *topic, const char *tipo) // Funcion que crea el mensaje JSON y lo mete a la cola
 {
   JsonDocument doc;
   doc["tipo"] = tipo;
@@ -45,11 +46,11 @@ void json_message(const char *topic, const char *tipo)
   strncpy(msg.topic, topic, sizeof(msg.topic));
   serializeJson(doc, msg.serialize_msg);
 
-  if (xQueueSend(mqtt_queue, &msg, 0) != pdTRUE)
+  if (xQueueSend(mqtt_queue, &msg, 0) != pdTRUE)  // Si la cola esta llena, descarta el mensaje
     Serial.println("Cola llena, mensaje descartado");
 }
 
-void onMessage(char *topic, byte *payload, unsigned int length)
+void onMessage(char *topic, byte *payload, unsigned int length) // Callback
 {
   String payloadStr;
   for (unsigned int i = 0; i < length; i++) 
@@ -64,7 +65,7 @@ void onMessage(char *topic, byte *payload, unsigned int length)
 
   JsonDocument doc;
   DeserializationError err = deserializeJson(doc, payloadStr);
-  if (err) 
+  if (err)       // Si no se puede deserializar el mensaje lanza un mensaje de error
   { 
     Serial.print("Error deserializando: "); 
     Serial.println(err.c_str()); 
@@ -72,42 +73,42 @@ void onMessage(char *topic, byte *payload, unsigned int length)
   }
 
   const char *tipo = doc["tipo"];
-  if (tipo == nullptr) 
+  if (tipo == nullptr)   // Si no encuentra el campo donde se encuentra el mensaje, lanza un mensaje
   { 
     Serial.println("Campo tipo no encontrado"); 
     return; 
   }
   Serial.println(tipo);
 
-  if (strcmp(tipo, "PLANTA_ACTIVA") == 0) 
+  if (strcmp(tipo, "PLANTA_ACTIVA") == 0)  // Si llega PLANTA_ACTIVA se enciende el led
   { 
     set_led(true);  
     Serial.println("ENCENDIDO"); 
   } 
-  else if (strcmp(tipo, "PLANTA_INACTIVA") == 0) 
+  else if (strcmp(tipo, "PLANTA_INACTIVA") == 0)   // Si llega PLANTA_INACTIVA se apaga el led
   { 
     set_led(false); 
     Serial.println("APAGADO");   
   }
 }
 
-void webSocketEvent(WStype_t type, uint8_t *payload, size_t length)
+void webSocketEvent(WStype_t type, uint8_t *payload, size_t length)  // Callback del websocket
 {
-  if (type == WStype_CONNECTED)
+  if (type == WStype_CONNECTED) // Si detecta que se conectado lanza mensaja de conexion
   {
-    if (!WiFi.isConnected()) return;
+    if (!WiFi.isConnected()) return; // Si no se ha conectado al wifi, no continua
     Serial.println("WebSocket conectado");
     delay(1000);
 
-    String client_id = "esp32-" + String((uint32_t)ESP.getEfuseMac(), HEX);
-    if (mqttClient.connect(client_id.c_str(), MQTT_USERNAME, MQTT_PASSWORD))
+    String client_id = "esp32-" + String((uint32_t)ESP.getEfuseMac(), HEX); // Genera una ID
+    if (mqttClient.connect(client_id.c_str(), MQTT_USERNAME, MQTT_PASSWORD))  // Se intenta conectar al mqtt con la ID y las credenciales
     {
       Serial.println("Broker MQTT conectado");
-      mqttClient.subscribe(TOPIC_SUB);
+      mqttClient.subscribe(TOPIC_SUB);          // Se suscribe al topic
       Serial.println("Subscribed to: " TOPIC_SUB);
-      json_message(TOPIC_PUB, "Hi, I'm ESP ^^");
+      json_message(TOPIC_PUB, "Hi, I'm ESP ^^"); // Publica primer mensaje
     }
-    else
+    else // Si no se ha conseguido conectar lanza un mensaje con el error generado
     {
       Serial.print("MQTT connect fail, rc=");
       Serial.println(mqttClient.state());
@@ -118,45 +119,45 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length)
     wsWrapper.injectData(payload, length);
     mqttClient.loop();
   }
-  else if (type == WStype_DISCONNECTED)
+  else if (type == WStype_DISCONNECTED)  // Si el websocket se se desconecta lanza mensaje
   {
     Serial.println("WebSocket desconectado - reintentando...");
   }
 }
 
-void mqtt_connect()
+void mqtt_connect() // Funcion que inicializa las conecxiones
 {
-  mqtt_queue = xQueueCreate(QUEUE_SIZE, sizeof(Mqtt_Message_t));
+  mqtt_queue = xQueueCreate(QUEUE_SIZE, sizeof(Mqtt_Message_t)); // Creacion de la cola
 
-  webSocket.beginSSL(mqttServerIP, mqttServerPort, "/mqtt", "", "mqtt");
-  webSocket.onEvent(webSocketEvent);
-  webSocket.setReconnectInterval(5000);
-  webSocket.enableHeartbeat(25000, 5000, 3);
+  webSocket.beginSSL(mqttServerIP, mqttServerPort, "/mqtt", "", "mqtt"); //Inicia conexion websocket
+  webSocket.onEvent(webSocketEvent);   // Asocia la funcion al manejador de eventos del websocket
+  webSocket.setReconnectInterval(5000);   // Intervalo de tiempo por el que se intenta conectar cuando se pierde la conexion
+  webSocket.enableHeartbeat(25000, 5000, 3);  
 
-  mqttClient.setServer(mqttServerIP, mqttServerPort);
-  mqttClient.setCallback(onMessage);
-  mqttClient.setKeepAlive(60);
-  mqttClient.setSocketTimeout(10);
+  mqttClient.setServer(mqttServerIP, mqttServerPort); // Indica el IP y puerto del mqtt
+  mqttClient.setCallback(onMessage);  // Indica que funcion hace de callback
+  mqttClient.setKeepAlive(60);  // Hace que mqtt se mantenga abierto
+  mqttClient.setSocketTimeout(10);  //Timepo maximo de espera para operaciones de socket
 
   Serial.println("Esperando conexion WebSocket...");
   unsigned long start = millis();
-  while (!mqttClient.connected() && millis() - start < 30000)
+  while (!mqttClient.connected() && millis() - start < 30000)  // Espera 30s a que el websocket se conecte con el mqtt
   {
     webSocket.loop(); 
     delay(10);
   }
 
-  if (mqttClient.connected())
+  if (mqttClient.connected()) // Si se conecta lanza un mensaje de existo
     Serial.println("MQTT listo");
-  else
+  else                        // Sino lanza un mensaje de que lo volvera a intentar
     Serial.println("MQTT no conectado, reintentara en el loop");
 }
 
-void mqtt_loop()
+void mqtt_loop()  // Funcion que conecta lanza los mensajes extrayendolos de la cola
 {
   webSocket.loop();
 
-  if (!mqttClient.connected()) return;
+  if (!mqttClient.connected()) return;  // Si no esta conectado el cliente no sigue
 
   Mqtt_Message_t msg;
   while (xQueueReceive(mqtt_queue, &msg, 0) == pdTRUE)
