@@ -54,10 +54,10 @@ esp32/
 ## Explicacion de cada archivo
 
 ### main.cpp
-Este es el archivo principal y contiene la configuracion del WiFi, del MQTT asi como el callback para los mensajes entrantes y
-una funcion llamada `json_message()` que se encarga de crear los mensajes JSON y meterlos en una cola que ira publicando estos 
-mensajes en el bucle principal (`loop()`). En este archivo también se crean las tareas en el apartado anterior encargadas detectar 
-el estado de los sensores (botones).
+Este es el archivo principal y contiene el `setup()` que gestiona la conexión wifi y mqtt, así como inicializa los sensores, actuadores y tareas. 
+También encontramos el `loop()` que mantiene la conexión wifi y mqtt. En este archivo también se crean las tareas `emergency_stop_button()`, 
+tarea que se encarga de mirar el estado del botón que indica si la planta tiene que detenerse o no, y `star_button()`, tarea que se encarga de 
+mirar el estado del botón que indica si la plante se ha iniciado o no.
 
 ### actuadoes.c / actuadores.h
 En estos archivos se encuentran la declaracion (`actuadores.h`) e implementacion (`actuadores.c`) de las funciones que se encargan de 
