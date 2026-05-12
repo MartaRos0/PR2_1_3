@@ -3,15 +3,9 @@ import psycopg
 from robodk import robolink
 from datetime import datetime
 
-"""
-Stack Tecnológico: Python, psycopg (PostgreSQL), RoboDK API (robolink).
-Descripción: Gestiona la persistencia de datos del proyecto. Conecta con 
-la base de datos PostgreSQL local para consultar stock, registrar cajas 
-terminadas y asociar pedidos.
-"""
-
 RDK = robolink.Robolink()
-# ── Configuración de conexión ────────────────────────────────
+
+# Datos de la base de datos de pgAdmin
 DB_CONFIG = {
     "dbname":   "gdi",
     "user":     "postgres",
@@ -20,305 +14,153 @@ DB_CONFIG = {
     "port":     "5432"
 }
 
+# IDs de los componentes (Tabla Almacen)
+COD_CAJA_VACIA = "C001"
+COD_BOLSA_A    = "C002"
+COD_BOLSA_B    = "C003"
+COD_TAPA       = "C004"
+COD_MANUAL     = "C005"
 
-# ── Códigos de componente (Almacen.Codigo) ───────────────────
-COD_CAJA       = "C001"   # La caja vacía
-COD_BOLSA_T1   = "C002"   # Bolsa tipo 1
-COD_BOLSA_T2   = "C005"   # Bolsa tipo 2
-COD_INSTRU     = "C003"   # Instrucciones
-COD_TAPA_T1    = "C004"   # Tapa tipo 1
-COD_TAPA_T2    = "C006"   # Tapa tipo 2
-
-# ── Códigos de tipo de caja (Tipo_Caja.Codigo) ───────────────
-TIPO_CAJA_1    = "TIPO_1"
-TIPO_CAJA_2    = "TIPO_2"
-
-# ── Precio de fabricación por tipo (requerido NOT NULL en Caja) ──
-PRECIO_TIPO_1  = 5.00
-PRECIO_TIPO_2  = 7.50
-
-
-#ACCESO A DATOS
+# IDs de los tipos de caja (Tabla Tipo_Caja)
+TIPO_AMARILLA = "TC01"
+TIPO_ROJA     = "TC02"
 
 def get_connection():
-    """
-    Establece y devuelve la conexión a la base de datos PostgreSQL
-    usando los parámetros definidos en DB_CONFIG.
-    """
     return psycopg.connect(**DB_CONFIG)
 
-
-def db_iniciar_produccion(id_produccion, total_t1, total_t2):
-    """
-    Se verifica el stock de todos los componentes necesarios y
-    se imprime el resumen del pedido que arranca.
-    Devuelve True si el stock es suficiente para comenzar.
-    """
-    print(f"[BD] Iniciando producción {id_produccion}  "
-          f"(T1={total_t1}, T2={total_t2})")
-    print(f"[BD] NOTA: tabla Produccion no disponible en el esquema; "
-          f"el registro de sesión se omite.")
-    return True
-
-
-def db_registrar_caja(id_caja, tipo_num):
-    """
-    Inserta una fila en Caja con Acabada=FALSE.)
-    """
-    tipo_str   = TIPO_CAJA_1 if tipo_num == 1 else TIPO_CAJA_2
-    precio     = PRECIO_TIPO_1 if tipo_num == 1 else PRECIO_TIPO_2
-    cod_tipo   = TIPO_CAJA_1 if tipo_num == 1 else TIPO_CAJA_2
-
-    conn = cur = None
-    try:
-        conn = get_connection()
-        cur  = conn.cursor()
-
-        # Insertar en Caja
-        sql_caja = """
-            INSERT INTO Caja (ID, Tipo, Precio_Fabricacion, Acabada)
-            VALUES (%s, %s, %s, FALSE)
-        """
-        cur.execute(sql_caja, (id_caja, tipo_str, precio))
-
-        # Insertar la relación en Caja_Tipo
-        sql_caja_tipo = """
-            INSERT INTO Caja_Tipo (ID, Codigo)
-            VALUES (%s, %s)
-        """
-        cur.execute(sql_caja_tipo, (id_caja, cod_tipo))
-
-        conn.commit()
-        print(f"[BD] Caja registrada: {id_caja}  (Tipo {tipo_str}, "
-              f"Precio {precio})")
-    except Exception as e:
-        if conn: conn.rollback()
-        print(f"[BD ERROR] db_registrar_caja: {e}")
-    finally:
-        if cur:  cur.close()
-        if conn: conn.close()
-
-
-def db_finalizar_caja(id_caja):
-    """
-    Marca Acabada=TRUE en la tabla Caja.
-    Se llama cuando CONTADOR_T sube.
-    """
-    conn = cur = None
-    try:
-        conn = get_connection()
-        cur  = conn.cursor()
-        sql  = "UPDATE Caja SET Acabada = TRUE WHERE ID = %s"
-        cur.execute(sql, (id_caja,))
-        conn.commit()
-        print(f"[BD] Caja finalizada: {id_caja}")
-    except Exception as e:
-        if conn: conn.rollback()
-        print(f"[BD ERROR] db_finalizar_caja: {e}")
-    finally:
-        if cur:  cur.close()
-        if conn: conn.close()
-
-
-def db_descontar_stock(lista_componentes):
-    """Descuenta 1 unidad de cada componente de la lista."""
-    conn = cur = None
-    try:
-        conn = get_connection()
-        cur  = conn.cursor()
-        sql  = """
-            UPDATE Almacen
-            SET Stock_Actual = Stock_Actual - 1
-            WHERE Codigo = %s
-        """
-        cur.executemany(sql, [(c,) for c in lista_componentes])
-        conn.commit()
-        print(f"[BD] Stock descontado: {lista_componentes}")
-    except Exception as e:
-        if conn: conn.rollback()
-        print(f"[BD ERROR] db_descontar_stock: {e}")
-    finally:
-        if cur:  cur.close()
-        if conn: conn.close()
-
-
 def db_check_stock(codigo):
-    """Devuelve True si el stock actual supera el mínimo."""
+    """Mira si hay stock suficiente en el almacén antes de empezar."""
     conn = cur = None
     try:
         conn = get_connection()
         cur  = conn.cursor()
-        sql  = """
-            SELECT Stock_Actual, Stock_Minimo
-            FROM Almacen
-            WHERE Codigo = %s
-        """
+        sql  = "SELECT Stock_Actual, Stock_Minimo FROM Almacen WHERE Codigo = %s"
         cur.execute(sql, (codigo,))
         fila = cur.fetchone()
+        
         if fila:
             stock_actual, stock_minimo = fila
             if stock_actual > stock_minimo:
                 return True
             else:
-                print(f"[BD ALERTA] Stock bajo mínimos para "
-                      f"{codigo}: {stock_actual}")
+                print(f"Alerta: Stock bajo para {codigo} ({stock_actual} unidades)")
                 return False
-        else:
-            print(f"[BD ERROR] Componente {codigo} no encontrado en Almacen")
-            return False
+        return False
     except Exception as e:
-        print(f"[BD ERROR] db_check_stock: {e}")
+        print(f"Error al mirar stock: {e}")
         return False
     finally:
-        if cur:  cur.close()
+        if cur: cur.close()
         if conn: conn.close()
 
+def db_registrar_caja(cod_fisico, tipo_num, num_localizador):
+    """Guarda la caja en la tabla Caja al empezar la cinta."""
+    cod_tipo = TIPO_AMARILLA if tipo_num == 1 else TIPO_ROJA
+    nombre_tipo = "Caja Amarilla T1" if tipo_num == 1 else "Caja Roja T2"
 
-def db_finalizar_produccion(id_produccion, estado):
-    """
-    La tabla Produccion no existe en el DDL.
-    Se imprime el estado final y se llama al resumen de cajas.
-    estado: 'COMPLETADA' | 'EMERGENCIA'
-    """
-    print(f"[BD] Producción {id_produccion} → {estado}")
-    if estado == 'COMPLETADA':
-        db_resumen_produccion(id_produccion)
-
-
-def db_resumen_produccion(id_produccion):
-    """
-    Muestra cuántas cajas hay acabadas/total agrupadas por Tipo.
-    Usa el prefijo del ID de caja para filtrar la sesión actual,
-    ya que Caja no tiene columna ID_Produccion en el DDL.
-    """
     conn = cur = None
     try:
         conn = get_connection()
         cur  = conn.cursor()
-        sql  = """
-            SELECT Tipo,
-                   COUNT(*)                                    AS Total,
-                   SUM(CASE WHEN Acabada THEN 1 ELSE 0 END)   AS Completadas
-            FROM Caja
-            WHERE ID LIKE %s
-            GROUP BY Tipo
-            ORDER BY Tipo
+        sql = """
+            INSERT INTO Caja (Cod, Tipo, Acabada, Numero_localizador, Codigo_Tipo)
+            VALUES (%s, %s, FALSE, %s, %s)
         """
-        patron = f"{id_produccion}_%"
-        cur.execute(sql, (patron,))
-        filas = cur.fetchall()
-        print(f"\n[BD] ── Resumen producción {id_produccion} ──")
-        for fila in filas:
-            print(f"     Tipo {fila[0]}: {fila[2]}/{fila[1]} cajas completadas")
+        cur.execute(sql, (cod_fisico, nombre_tipo, num_localizador, cod_tipo))
+        conn.commit()
+        print(f"Caja {cod_fisico} registrada en el pedido {num_localizador}")
     except Exception as e:
-        print(f"[BD ERROR] db_resumen_produccion: {e}")
+        if conn: conn.rollback()
+        print(f"Error al registrar caja: {e}")
     finally:
-        if cur:  cur.close()
+        if cur: cur.close()
         if conn: conn.close()
 
-
-
-def _leer_param_int(nombre, default=0):
-    """Lee un Param de RoboDK de forma segura, devuelve int."""
+def db_finalizar_caja(cod_fisico):
+    """Cambia Acabada a True cuando el robot termina el tapado."""
+    conn = cur = None
     try:
-        return int(RDK.getParam(nombre))
-    except Exception:
+        conn = get_connection()
+        cur  = conn.cursor()
+        sql  = "UPDATE Caja SET Acabada = TRUE WHERE Cod = %s"
+        cur.execute(sql, (cod_fisico,))
+        conn.commit()
+        print(f"Caja {cod_fisico} terminada.")
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Error al finalizar: {e}")
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+def db_descontar_stock(lista_componentes):
+    """Resta 1 unidad de stock por cada pieza que use el robot."""
+    conn = cur = None
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+        sql  = "UPDATE Almacen SET Stock_Actual = Stock_Actual - 1 WHERE Codigo = %s"
+        cur.executemany(sql, [(c,) for c in lista_componentes])
+        conn.commit()
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Error al descontar stock: {e}")
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+def _leer_param(nombre, default=""):
+    try:
+        val = RDK.getParam(nombre)
+        return val if val else default
+    except:
         return default
 
-
 def run():
-    # Esperar a que main haya escrito ID_PRODUCCION
-    id_produccion = None
-    while not id_produccion:
-        try:
-            val = RDK.getParam('ID_PRODUCCION')
-            if val and val.strip():
-                id_produccion = val.strip()
-        except Exception:
-            pass
-        time.sleep(0.2)
-
-    total_t1 = _leer_param_int('INITIAL_P1')
-    total_t2 = _leer_param_int('TOTAL_PEDIDO_2_INICIAL')
-
-    # Verificar stock antes de arrancar
-    componentes_criticos = [COD_CAJA, COD_BOLSA_T1, COD_BOLSA_T2,
-                            COD_TAPA_T1, COD_TAPA_T2, COD_INSTRU]
-    for cod in componentes_criticos:
-        if not db_check_stock(cod):
-            RDK.setParam('PARADA_EMERGENCIA', '1')
-            print(f"[BD] EMERGENCIA por stock insuficiente de {cod}")
-            db_finalizar_produccion(id_produccion, 'EMERGENCIA')
+    num_localizador = _leer_param('NUMERO_PEDIDO', 'P001')
+    total_t1 = int(_leer_param('INITIAL_P1', '0'))
+    
+    # Check de materiales inicial
+    materiales = [COD_CAJA_VACIA, COD_BOLSA_A, COD_BOLSA_B, COD_TAPA, COD_MANUAL]
+    for m in materiales:
+        if not db_check_stock(m):
+            print("Parando: No hay suficiente material.")
             return
 
-    db_iniciar_produccion(id_produccion, total_t1, total_t2)
+    prev_c = int(_leer_param('CONTADOR_C', '0'))
+    prev_t = int(_leer_param('CONTADOR_T', '0'))
+    mapa_cajas = {}
 
-    # Estado anterior de cada contador para detectar cambios
-    prev_contador_c = _leer_param_int('CONTADOR_C')
-    prev_contador_t = _leer_param_int('CONTADOR_T')
-    prev_contador_i = _leer_param_int('CONTADOR_I')
-    prev_emergencia = 0
+    print(f"Iniciando pedido {num_localizador}...")
 
-    mapa_id_cajas = {}
+    while True:
+        # Sensor de llenado
+        curr_c = int(_leer_param('CONTADOR_C', '0'))
+        if curr_c > prev_c:
+            for i in range(prev_c + 1, curr_c + 1):
+                id_fisico = f"LEGO_{num_localizador}_{i:03d}"
+                tipo_num = 1 if i <= total_t1 else 2
+                cod_bolsa = COD_BOLSA_A if tipo_num == 1 else COD_BOLSA_B
+                
+                db_registrar_caja(id_fisico, tipo_num, num_localizador)
+                db_descontar_stock([COD_CAJA_VACIA, cod_bolsa])
+                mapa_cajas[i] = id_fisico
+            prev_c = curr_c
 
-    print(f"[BD] Registrador activo. Producción: {id_produccion}")
+        # Sensor de tapado
+        curr_t = int(_leer_param('CONTADOR_T', '0'))
+        if curr_t > prev_t:
+            for i in range(prev_t + 1, curr_t + 1):
+                id_fisico = mapa_cajas.get(i)
+                if id_fisico:
+                    db_descontar_stock([COD_TAPA, COD_MANUAL])
+                    db_finalizar_caja(id_fisico)
+            prev_t = curr_t
 
-    while _leer_param_int('PARAR_ESTACION', default=1) == 1:
-
-        # Emergencia
-        emergencia = _leer_param_int('PARADA_EMERGENCIA')
-        if emergencia == 1 and prev_emergencia == 0:
-            print("[BD] Emergencia detectada. Cerrando producción.")
-            db_finalizar_produccion(id_produccion, 'EMERGENCIA')
-            return
-        prev_emergencia = emergencia
-
-        #  Sensor C: bolsa colocada 
-        contador_c = _leer_param_int('CONTADOR_C')
-        if contador_c > prev_contador_c:
-            for n in range(prev_contador_c + 1, contador_c + 1):
-                id_caja = f"{id_produccion}_C{n:03d}"
-                mapa_id_cajas[n] = id_caja
-
-                tipo = 1 if n <= total_t1 else 2
-                cod_bolsa = COD_BOLSA_T1 if tipo == 1 else COD_BOLSA_T2
-
-                # Registrar la caja en Caja y Caja_Tipo
-                db_registrar_caja(id_caja, tipo)
-                db_descontar_stock([COD_CAJA, cod_bolsa])
-
-                # Guardar el id
-                RDK.setParam(f'ID_CAJA_{n:03d}', id_caja)
-
-            prev_contador_c = contador_c
-
-        # Sensor I: instrucciones colocadas 
-        contador_i = _leer_param_int('CONTADOR_I')
-        if contador_i > prev_contador_i:
-            for n in range(prev_contador_i + 1, contador_i + 1):
-                id_caja = mapa_id_cajas.get(n, f"{id_produccion}_C{n:03d}")
-                db_descontar_stock([COD_INSTRU])
-                print(f"[BD] Instrucciones registradas para caja {id_caja}")
-            prev_contador_i = contador_i
-
-        # Sensor T: tapa colocada → caja completada
-        contador_t = _leer_param_int('CONTADOR_T')
-        if contador_t > prev_contador_t:
-            for n in range(prev_contador_t + 1, contador_t + 1):
-                id_caja = mapa_id_cajas.get(n, f"{id_produccion}_C{n:03d}")
-                tipo = 1 if n <= total_t1 else 2
-                cod_tapa = COD_TAPA_T1 if tipo == 1 else COD_TAPA_T2
-
-                db_descontar_stock([cod_tapa])
-                db_finalizar_caja(id_caja)
-
-            prev_contador_t = contador_t
-
-        time.sleep(0.15)
-
-    db_finalizar_produccion(id_produccion, 'COMPLETADA')
-    print("[BD] Registrador finalizado correctamente.")
-
+        if _leer_param('ESTADO_PLANTA') == 'STOP':
+            break
+            
+        time.sleep(0.5)
 
 if __name__ == "__main__":
     run()
