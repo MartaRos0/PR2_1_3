@@ -67,6 +67,6 @@ function enviar_pedido_mqtt(modelo) {
     });
   }
 
-  cliente.publish('PR2_1_3/linea1/esp', mensaje);
+  cliente.publish('PR2_1_3/linea1/web', mensaje);
   alert('Pedido enviado: ' + cantidad + 'x ' + modelo);
 }
