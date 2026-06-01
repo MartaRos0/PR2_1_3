@@ -42,7 +42,7 @@ esp32/
 3. Se crean las tareas FreeRTOS
    * `temperature_esp` que realiza una vigilancia periodica de la temperatura interna del mircroprocesador
    * `start_button` que detecta cuando se pulsa el boton de inicio de funcionamiento de la planta
-4. Se crea una interrupcion para el botin de emergencia
+4. Se crea una interrupcion para el boton de emergencia
    * `emergency` actua como flag
    * `emergency_ISR` activa el flag
 5. Se envian mensajes JSON
