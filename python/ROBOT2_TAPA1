@@ -50,6 +50,12 @@ def Pick_tapa1(r):
     
     r (Item): El objeto robot de RoboDK que realizará el movimiento.
     """
+    if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
+        return
+
+    velocidad_lineal = 400
+    robot.setSpeed(velocidad_lineal)
+
     r.setPoseFrame(frame_at_2_rb1_cog)
     r.MoveJ(prepick_tapa_2)
 
@@ -61,14 +67,12 @@ def Pick_tapa1(r):
     #ADJUNTAR OBJETO A VENTOSA
     tool.AttachClosest()
 
-    RDK.setParam('IO_0', '1')
     r.Pause(1000)
     r.MoveL(prepick_tapa_2)
 
-    velocidad_lineal = 200
+    velocidad_lineal = 400
     robot.setSpeed(velocidad_lineal)
 
-    RDK.RunProgram('REPONER_TAPA', False)
 
 
 def Place_tapa1(r):
@@ -77,6 +81,11 @@ def Place_tapa1(r):
     sobre la caja en la cinta transportadora.
     Desvincula la tapa de la ventosa dejándola hija del Frame de la caja.
     """
+    RDK.RunProgram('REPONER_TAPA', False)
+
+    if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
+        return
+
     r.setPoseFrame(frame_cinta_aprox)
     r.MoveJ(tapa_preplace)
 
@@ -89,11 +98,10 @@ def Place_tapa1(r):
     frame_destino = RDK.Item('FrameCAJA', ITEM_TYPE_FRAME)
     tool.DetachAll(frame_destino)
 
-    RDK.setParam('IO_0', '0')
     r.Pause(1000)
     r.MoveL(tapa_preplace)
 
-    velocidad_lineal = 200
+    velocidad_lineal = 400
     r.setSpeed(velocidad_lineal)
 
 
@@ -103,7 +111,10 @@ def PickAndPlace_tapa_tipo1(r):
     Detiene la señal de avance de cinta, encadena secuencialmente los movimientos 
     (Safe -> Pick -> Punto de Paso -> Place -> Safe) y vuelve a permitir el avance de la cinta.
     """
-    RDK.setParam('Conti_T', '0')
+    if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
+        return
+        
+    RDK.setParam('R2_LIBRE', '0')
     
     r.setPoseFrame(frame_robot)
 
@@ -119,8 +130,7 @@ def PickAndPlace_tapa_tipo1(r):
     r.setPoseFrame(frame_robot)
     r.MoveJ(safe)
 
-    RDK.setParam('Conti_T', '1')
+    RDK.setParam('R2_LIBRE', '1')
 
 
 PickAndPlace_tapa_tipo1(robot)
-
