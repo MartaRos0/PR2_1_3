@@ -27,8 +27,7 @@ ref_obj_2 = RDKCIRCUIT.Item(NEW_REF_OBJECT_NAME_2, robolink.ITEM_TYPE_OBJECT)
 
 mechanism = RDKCIRCUIT.Item(MECHANISM_NAME, robolink.ITEM_TYPE_ROBOT)
 
-p2 = int(RDKCIRCUIT.getParam('INS_BOLSA_2'))
-lim = int(RDKCIRCUIT.getParam('lim_ins'))
+lim = int(RDKCIRCUIT.getParam('LIMITE_INSTRU'))
 
 
 if lim != 0:
@@ -57,4 +56,4 @@ if lim != 0:
 
     RDKCIRCUIT.Render(True)
 
-    RDKCIRCUIT.setParam('Conti_I', '1')
+    RDKCIRCUIT.setParam('INSTRU_LIBRE', '1')
