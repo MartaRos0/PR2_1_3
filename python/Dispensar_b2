@@ -64,4 +64,3 @@ if door.Valid():
     door.MoveJ(door.Joints() + N_DOOR_TRAVEL_MM)
     
 RDKCIRCUIT.setParam('BOLSA2_PICK', '1')
-
