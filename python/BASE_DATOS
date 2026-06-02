@@ -1,0 +1,318 @@
+import time
+import psycopg
+from robodk import robolink
+from datetime import datetime
+
+RDK = robolink.Robolink()
+
+""""
+Stack Tecnológico: Python, Paho MQTT, ssl, json, RoboDK API, pgAdmin4.
+Descripción: Encargado de conectarse a la base de datos LOCAL del sistema.
+Revisa continuamente los movimientos realizados en la simulación para 
+registrar/actualizar los campos de la tabla Cajas de la base de datos.
+También revisa antes de empezar a producir el stock actual.
+"""
+
+# Configuración BD
+DB_CONFIG = {
+    "dbname":   "gdi",
+    "user":     "postgres",
+    "password": "postgres",
+    "host":     "localhost",
+    "port":     "5432"
+}
+
+# Códigos de componentes
+COD_CAJA_VACIA = "C001"
+COD_BOLSA_A    = "C002"
+COD_BOLSA_B    = "C003"
+COD_TAPA       = "C004"
+COD_MANUAL     = "C005"
+
+# Códigos de tipo de caja
+TIPO_AMARILLA = "TC01"
+TIPO_ROJA     = "TC02"
+
+
+# FUNCIONES DE BASE DE DATOS
+def get_connection():
+    return psycopg.connect(**DB_CONFIG)
+
+
+def db_check_stock_preciso(codigo, cantidad_necesaria):
+    """Comprueba que el stock actual cubre exactamente la cantidad del pedido."""
+    conn = cur = None
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+        cur.execute("SELECT Stock_Actual FROM Almacen WHERE Codigo = %s", (codigo,))
+        fila = cur.fetchone()
+
+        if fila:
+            stock_actual = fila[0]
+            if stock_actual >= cantidad_necesaria:
+                return True
+            else:
+                return False
+        return False
+    
+    except Exception as e:
+        return False
+    
+    finally:
+        if cur:  cur.close()
+        if conn: conn.close()
+
+
+def db_registrar_pedido(num_localizador):
+    """Crea el registro del pedido en Pedido si no existe."""
+    conn = cur = None
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+        sql  = """
+            INSERT INTO Pedido (Numero_Localizador, Fecha_Pedido, DNI_CIF)
+            VALUES (%s, CURRENT_DATE,
+                (SELECT DNI_CIF FROM Cliente LIMIT 1))
+            ON CONFLICT (Numero_Localizador) DO NOTHING
+        """
+        cur.execute(sql, (num_localizador,))
+        conn.commit()
+
+    except Exception as e:
+        if conn: conn.rollback()
+
+    finally:
+        if cur:  cur.close()
+        if conn: conn.close()
+
+
+def db_registrar_caja(cod_fisico, tipo_num, num_localizador):
+    """
+    Inserta la caja en la tabla Caja cuando pasa por el sensor C.
+    cod_fisico es el ID único (ej: LEGO_PED_001_001).
+    tipo_num: 1 = Amarilla, 2 = Roja.
+    """
+    cod_tipo    = TIPO_AMARILLA if tipo_num == 1 else TIPO_ROJA
+    nombre_tipo = "Caja Amarilla T1" if tipo_num == 1 else "Caja Roja T2"
+    conn = cur  = None
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+        sql  = """
+            INSERT INTO Caja (cod, tipo, acabada, numero_localizador, codigo_tipo)
+            VALUES (%s, %s, FALSE, %s, %s)
+        """
+        cur.execute(sql, (cod_fisico, nombre_tipo, num_localizador, cod_tipo))
+        conn.commit()
+
+    except Exception as e:
+        if conn: conn.rollback()
+
+    finally:
+        if cur:  cur.close()
+        if conn: conn.close()
+
+
+def db_finalizar_caja(cod_fisico, tiempo_segundos=None):
+    """
+    Marca Acabada=TRUE y guarda el tiempo de producción cuando la caja
+    pasa por el sensor T (tapa colocada).
+    """
+    conn = cur = None
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+        sql  = "UPDATE Caja SET acabada = TRUE, tiempo_produccion = %s WHERE cod = %s"
+        cur.execute(sql, (round(tiempo_segundos, 1) if tiempo_segundos else None, cod_fisico))
+        conn.commit()
+
+    except Exception as e:
+        if conn: conn.rollback()
+
+    finally:
+        if cur:  cur.close()
+        if conn: conn.close()
+
+
+def db_descontar_stock(lista_componentes):
+    """Resta 1 unidad por cada componente de la lista."""
+    conn = cur = None
+    try:
+        conn = get_connection()
+        cur  = conn.cursor()
+        cur.executemany(
+            "UPDATE Almacen SET Stock_Actual = Stock_Actual - 1 WHERE Codigo = %s",
+            [(c,) for c in lista_componentes]
+        )
+        conn.commit()
+
+    except Exception as e:
+        if conn: conn.rollback()
+
+    finally:
+        if cur:  cur.close()
+        if conn: conn.close()
+
+
+def _leer_param(nombre, default=""):
+    try:
+        val = RDK.getParam(nombre)
+        return val if val else default
+    except Exception:
+        return default
+
+
+# LÓGICA PRINCIPAL
+def run():
+    while True:
+
+        #Esperar arranque
+        while int(_leer_param('MQTT_ESTACION_ENCENDIDA', '0')) == 0:
+            time.sleep(0.5)
+
+        # Esperar a que init() termine de escribir los parámetros
+        time.sleep(1.0)
+
+        #Leer datos del pedido
+        num_localizador = _leer_param('NUMERO_PEDIDO', 'DESCONOCIDO')
+        p1 = int(_leer_param('PEDIDO_1_INICIAL', '0'))
+        p2 = int(_leer_param('PEDIDO_2_INICIAL', '0'))
+        total_t1 = p1
+        total_cajas = p1 + p2
+
+        if total_cajas == 0:
+            continue
+        else:
+            # Reanudación o pedido nuevo
+            es_reanudacion = int(_leer_param('ES_REANUDACION', '0')) == 1
+
+            mapa_cajas    = {}
+            tiempos_inicio = {}
+
+            if es_reanudacion:
+                # Restaurar desde los contadores que quedaron en RoboDK
+                prev_c = int(_leer_param('CONTADOR_C', '0'))
+                prev_t = int(_leer_param('CONTADOR_T', '0'))
+                prev_i = int(_leer_param('CONTADOR_I', '0'))
+
+                # Reconstruir mapa para cajas que pasaron C pero no T
+                # Usamos MAPA_CAJA_{i} que Base_datos guarda en cada evento C
+                for i in range(prev_t + 1, prev_c + 1):
+                    nombre_rdk = _leer_param(f'MAPA_CAJA_{i:03d}', '')
+                    if nombre_rdk:
+                        id_fisico = f"LEGO_{num_localizador}_{i:03d}"
+                        mapa_cajas[nombre_rdk] = id_fisico
+                        tiempos_inicio[id_fisico] = time.time()
+
+                RDK.setParam('STOCK_VERIFICADO', '1')
+
+            else:
+                prev_c = 0
+                prev_t = 0
+                prev_i = 0
+
+                # Comprobar stock 
+                comprobaciones = [
+                    (COD_CAJA_VACIA, total_cajas),
+                    (COD_BOLSA_A,    p1),
+                    (COD_BOLSA_B,    p2),
+                    (COD_TAPA,       total_cajas),
+                    (COD_MANUAL,     total_cajas),
+                ]
+                stock_ok = all(
+                    db_check_stock_preciso(cod, qty)
+                    for cod, qty in comprobaciones if qty > 0
+                )
+
+                if not stock_ok:
+                    RDK.ShowMessage(
+                        f"PRODUCCIÓN BLOQUEADA: Stock insuficiente para el pedido "
+                        f"{num_localizador}. Reponga el almacén y envíe un nuevo pedido.",
+                        False
+                    )
+                    RDK.setParam('PARADA_EMERGENCIA', '1')
+                    while int(_leer_param('MQTT_ESTACION_ENCENDIDA', '0')) == 1:
+                        time.sleep(1.0)
+                    continue
+
+                # Registrar el pedido en BD y autorizar arranque
+                db_registrar_pedido(num_localizador)
+                RDK.setParam('STOCK_VERIFICADO', '1')
+
+            #Bucle de vigilancia 
+            while (int(_leer_param('PARAR_ESTACION', '1')) == 1 and int(_leer_param('MQTT_ESTACION_ENCENDIDA','0')) == 1):
+
+                #  Sensor C: nueva caja entra a producción 
+                curr_c = int(_leer_param('CONTADOR_C', '0'))
+                if curr_c > prev_c:
+                    for i in range(prev_c + 1, curr_c + 1):
+                        #identificar la caja
+                        tipo_num   = 1 if i <= total_t1 else 2
+                        nombre_rdk = f"CAJA_{i:03d}" if tipo_num == 1 else f"CAJA2_{i:03d}"
+                        
+                        id_fisico  = f"LEGO_{num_localizador}_{i:03d}"
+                        cod_bolsa  = COD_BOLSA_A if tipo_num == 1 else COD_BOLSA_B
+
+                        mapa_cajas[nombre_rdk]      = id_fisico
+                        tiempos_inicio[id_fisico]   = time.time()
+                        RDK.setParam(f'MAPA_CAJA_{i:03d}', nombre_rdk)
+
+                        db_registrar_caja(id_fisico, tipo_num, num_localizador)
+                        db_descontar_stock([COD_CAJA_VACIA, cod_bolsa])
+                    prev_c = curr_c
+
+                # Sensor T: tapa colocada -> caja acabada 
+                curr_t = int(_leer_param('CONTADOR_T', '0'))
+                if curr_t > prev_t:
+                    for i in range(prev_t + 1, curr_t + 1):
+                        
+                        tipo_num_t = 1 if i <= total_t1 else 2
+                        nombre_matematico = f"CAJA_{i:03d}" if tipo_num_t == 1 else f"CAJA2_{i:03d}"
+                        
+                        id_fisico = mapa_cajas.get(nombre_matematico)
+
+                        if id_fisico:
+                            db_descontar_stock([COD_TAPA])
+                            db_descontar_stock([COD_MANUAL])
+                            tiempo_total = time.time() - tiempos_inicio.get(id_fisico, time.time())
+                            db_finalizar_caja(id_fisico, tiempo_total)
+                        else:
+                            continue
+                    prev_t = curr_t
+
+                # Salida de emergencia 
+                if int(_leer_param('PARADA_EMERGENCIA', '0')) == 1:
+                    print(f"[DB] Emergencia detectada. Suspendiendo pedido {num_localizador}.")
+                    break
+
+                time.sleep(0.5)
+
+            # Drenaje: procesar cajas en tránsito
+            tiempo_espera = 0
+            while prev_t < prev_c and tiempo_espera < 60:
+
+                curr_t = int(_leer_param('CONTADOR_T', '0'))
+                if curr_t > prev_t:
+                    for i in range(prev_t + 1, curr_t + 1):
+                        tipo_num_t = 1 if i <= total_t1 else 2
+                        nombre_matematico = f"CAJA_{i:03d}" if tipo_num_t == 1 else f"CAJA2_{i:03d}"
+                        
+                        id_fisico = mapa_cajas.get(nombre_matematico)
+                        
+                        if id_fisico:
+                            db_descontar_stock([COD_TAPA])
+                            db_descontar_stock([COD_MANUAL])
+                            tiempo_total = time.time() - tiempos_inicio.get(id_fisico, time.time())
+                            db_finalizar_caja(id_fisico, tiempo_total)
+                    prev_t = curr_t
+
+                if int(_leer_param('PARADA_EMERGENCIA', '0')) == 1:
+                    break
+
+                time.sleep(0.5)
+                tiempo_espera += 0.5
+
+
+if __name__ == "__main__":
+    run()
