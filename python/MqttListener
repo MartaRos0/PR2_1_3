@@ -5,88 +5,119 @@ import time
 import ssl
 
 RDK = robolink.Robolink()
-
 """
 Stack Tecnológico: Python, Paho MQTT, ssl, json, RoboDK API.
 Descripción: Script de comunicaciones asíncronas. Mantiene una conexión 
 viva vía WebSockets (WSS) con EMQX para recibir pedidos y órdenes de 
 emergencia desde un ESP32 o Dashboard, y notifica cuando la planta acaba.
 """
-
-
+#Configuracion
 broker="broker.emqx.io"
-port=8084
 user="PR2_1_3"
 passwd="public"
+
+#Topics
 base_topic="PR2_1_3/linea1"
-station_commands_topic=base_topic+"/python"
-station_status_topic=base_topic+"/esp"
+topic_enviar=base_topic+"/python"
+topic_recibir_esp=base_topic+"/esp"
+topic_recibir_web=base_topic+"/web"
 
-def on_connect(client, userdata, flags, reason_code, properties):
-    """
-    Callback disparado automáticamente cuando se establece la conexión con el broker.
-    Se suscribe inmediatamente al topic de escucha (station_status_topic).
-    """
+#Puertos
+port_web=8084
+port_esp=1883
 
-    client.subscribe(station_status_topic, 0)
-
-def on_message(mqttc, obj, msg):
+def on_message_web(mqttc_web, obj, msg):
     """
     Callback disparado automáticamente cada vez que llega un mensaje al topic.
     Decodifica el JSON recibido. Si contiene cantidades de cajas, las guarda 
-    en RoboDK. Si es una orden de 'EMPIEZA' o 'EMERGENCIA', activa la estación 
+    en RoboDK.
+    """
+    try:
+        datos = json.loads(msg.payload.decode('utf-8'))
+
+        #Recibir pedidos
+        if "cajas_tipo_1" in datos:
+            cantidad_1 = datos["cajas_tipo_1"]
+            RDK.setParam('TOTAL_PEDIDO_1', str(cantidad_1))
+            
+        if "cajas_tipo_2" in datos:
+            cantidad_2 = datos["cajas_tipo_2"]
+            RDK.setParam('TOTAL_PEDIDO_2', str(cantidad_2))
+
+    except json.JSONDecodeError:
+        pass
+
+def on_message_esp(mqttc_esp_cb, obj, msg):
+    """
+    Callback disparado automáticamente cada vez que llega un mensaje al topic.
+    Decodifica el JSON recibido. Si es una orden de 'EMPIEZA' o 'EMERGENCIA', activa la estación 
     o la detiene según corresponda.
     """
-    payload = msg.payload.decode('utf-8')
-    topic = msg.topic
-    qos = msg.qos
-
     try:
         #Convertir en json
-        datos = json.loads(payload)
+        datos = json.loads(msg.payload.decode('utf-8'))
 
-        if topic == station_status_topic:
-            #Recibir pedidos
-            if "cajas_tipo_1" in datos:
-                cantidad_1 = datos["cajas_tipo_1"]
-                RDK.setParam('TOTAL_PEDIDO_1', str(cantidad_1))
+        #Encender la estacion
+        if "tipo" in datos and datos["tipo"] == "EMPIEZA":
+            if int(RDK.getParam('PARADA_EMERGENCIA') or '0') == 1:
+                # Si había emergencia, la limpiamos y avisamos al Main
+                RDK.setParam('PARADA_EMERGENCIA', '0')
+                RDK.setParam('ES_REANUDACION', '1')
+            else:
+                # Si es un pedido nuevo limpio, generamos ID nuevo
+                RDK.setParam('ES_REANUDACION', '0')
+                id_pedido = f"PED_{int(time.time())}" 
+                RDK.setParam('NUMERO_PEDIDO', id_pedido)
             
-            if "cajas_tipo_2" in datos:
-                cantidad_2 = datos["cajas_tipo_2"]
-                RDK.setParam('TOTAL_PEDIDO_2', str(cantidad_2))
+            RDK.setParam('MQTT_ESTACION_ENCENDIDA', '1')
+            mqttc_esp.publish(topic_enviar, json.dumps({"tipo": "PLANTA_ACTIVA"}))
 
-            #Encender la estacion
-            if "tipo" in datos and datos["tipo"] == "EMPIEZA":
-                RDK.setParam('MQTT_ESTACION_ENCENDIDA', '1')
-                
-                mensaje = json.dumps({"tipo": "PLANTA_ACTIVA"})
-                mqttc.publish(station_commands_topic, mensaje)
+        #Boton de emergencia
+        if "tipo" in datos and datos["tipo"] == "EMERGENCIA":
+            RDK.setParam('PARADA_EMERGENCIA', '1')
 
-            #Boton de emergencia
-            if "aviso" in datos and datos["aviso"] == "EMERGENCIA":
-                RDK.setParam('PARADA_EMERGENCIA', '1')
+            mensaje = json.dumps({"tipo": "PLANTA_INACTIVA"})
+            mqttc_esp.publish(topic_enviar, mensaje)
             
     except json.JSONDecodeError:
         pass
 
-    
-mqttc = mqtt.Client(
+def on_connect_esp(client, userdata, flags, reason_code, properties):
+    """
+    Callback disparado automáticamente cuando se establece la conexión con el broker.
+    Se suscribe inmediatamente al topic de escucha de la ESP (topic_enviar).
+    """
+    client.subscribe(topic_recibir_esp, 0)
+
+def on_connect_web(client, userdata, flags, reason_code, properties):
+    """
+    Callback disparado automáticamente cuando se establece la conexión con el broker.
+    Se suscribe inmediatamente al topic de escucha de la web (topic_enviar) (para recibir los pedidos).
+    """
+    client.subscribe(topic_recibir_web, 0)
+
+#Cliente web
+mqttc_web = mqtt.Client(
     mqtt.CallbackAPIVersion.VERSION2,
     transport="websockets",
     protocol=mqtt.MQTTv311
 )
 
-mqttc.on_connect = on_connect
-mqttc.on_message = on_message
+mqttc_web.on_connect = on_connect_web
+mqttc_web.on_message = on_message_web
+mqttc_web.username_pw_set(username=user, password=passwd)
+mqttc_web.ws_set_options(path="/mqtt")
+mqttc_web.tls_set()
+mqttc_web.connect(broker, port_web, 60)
+mqttc_web.loop_start()
 
-mqttc.username_pw_set(username=user, password=passwd)
-mqttc.ws_set_options(path="/mqtt")
-
-mqttc.tls_set()
-
-mqttc.connect(broker, port, 60)
-
-mqttc.loop_start()
+#Cliente ESP
+mqttc_esp = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+mqttc_esp.on_connect = on_connect_esp
+mqttc_esp.on_message = on_message_esp
+mqttc_esp.username_pw_set(username=user, password=passwd)
+mqttc_esp.connect(broker, port_esp, 60)
+mqttc_esp.loop_start()
 
 
 #Enviar mensaje que la estacion ya ha acabado
@@ -100,10 +131,8 @@ while True:
     
     if estado_actual == 0 and estado_anterior == 1:
         mensaje = json.dumps({"tipo": "PLANTA_INACTIVA"})
-        mqttc.publish(station_commands_topic, mensaje)
-        mqttc.loop_stop()
-        mqttc.disconnect()
-        break
+        mqttc_esp.publish(topic_enviar, mensaje)
+        time.sleep(0.3)   # dar margen para que el publish salga antes de desconectar
 
     estado_anterior = estado_actual
     time.sleep(0.5)
