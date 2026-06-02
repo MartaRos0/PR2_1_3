@@ -3,17 +3,17 @@ from robodk import robomath
 RDKCIRCUIT = robolink.Robolink()
 
 """
-Stack Tecnológico: Python, RoboDK API (robolink, robomath).
-Descripción: Script de ejecución lineal. Se encarga de regenerar (clonar) 
-visualmente el modelo 3D de la 'TAPA' de Tipo 1 en el pedestal de recogida 
-una vez que el robot se ha llevado la anterior.
+Stack Tecnológico: Python 3, RoboDK API (robolink, robomath).
+Descripción: Script de ejecución lineal. Regenera (clona) visualmente el 
+modelo 3D de la 'TAPA' de Tipo 2 en su pedestal específico para garantizar 
+el flujo continuo de abastecimiento al robot.
 """
 
 #----- Constante -----
-NEW_REF_OBJECT_NAME = 'TAPA'
+NEW_REF_OBJECT_NAME = 'TAPA' 
 NEW_OBJECT_NAME = 'TAPA_C'
-REFERENCE_FRAME = 'COGIDA_TAPA'
-REFERENCE_FRAME_REF = 'FrameInitTapa'
+REFERENCE_FRAME = 'COGIDA_TAPA_2'
+REFERENCE_FRAME_REF = 'FrameInitTapa_2'
 
 #------- Programa ------
 frame = RDKCIRCUIT.Item(REFERENCE_FRAME, robolink.ITEM_TYPE_FRAME)
