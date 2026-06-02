@@ -57,10 +57,13 @@ def Pick_b2(r):
     
     r (Item): El objeto robot de RoboDK que realizará el movimiento.
     """
-    while int(RDK.getParam('BOLSA2_PICK')) != 1:
+    while int(RDK.getParam('BOLSA2_PICK')) != 1 and int(RDK.getParam('PARADA_EMERGENCIA')) == 0:
         time.sleep(0.1)
 
-    velocidad_lineal = 150
+    if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
+        return
+
+    velocidad_lineal = 400
     robot.setSpeed(velocidad_lineal)
 
     r.setPoseFrame(frame_at_2_rb1_cog)
@@ -78,7 +81,7 @@ def Pick_b2(r):
     r.Pause(1000)
     r.MoveL(prepick_bolsa_2)
 
-    velocidad_lineal = 200
+    velocidad_lineal = 400
     robot.setSpeed(velocidad_lineal)
 
 
@@ -88,7 +91,11 @@ def Place_bolsa1_tipo2(r):
     en el compartimento 1 de la caja.
     Detacha la bolsa de la ventosa al Frame de la caja.
     """
+
     RDK.RunProgram('DISPENSAR_B2', False)
+
+    if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
+        return
 
     r.setPoseFrame(frame_cinta_aprox)
     r.MoveJ(llegada_caja)
@@ -108,7 +115,7 @@ def Place_bolsa1_tipo2(r):
     r.Pause(1000)
     r.MoveL(llegada_caja_b2_preplace)
 
-    velocidad_lineal = 200
+    velocidad_lineal = 400
     r.setSpeed(velocidad_lineal)
 
 
@@ -117,7 +124,11 @@ def Place_bolsa2_tipo2(r):
     Realiza la maniobra de posicionamiento y liberación (Place) de la segunda Bolsa 
     en el compartimento 2 de la caja.
     """
+
     RDK.RunProgram('DISPENSAR_B2', False)
+
+    if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
+        return
 
     r.setPoseFrame(frame_cinta_aprox)
     r.MoveJ(llegada_caja)
@@ -137,7 +148,7 @@ def Place_bolsa2_tipo2(r):
     r.Pause(1000)
     r.MoveL(llegada_caja_b1_preplace)
 
-    velocidad_lineal = 200
+    velocidad_lineal = 400
     r.setSpeed(velocidad_lineal)
 
 
@@ -147,7 +158,10 @@ def PickAndPlace_b_tipo2(r):
     Encadena secuencialmente los movimientos de Home -> Safe -> Pick -> Punto de Paso 
     -> Place (repetido para las dos bolsas) y devuelve el control a la cinta.
     """
-    RDK.setParam('Continuar1', '0')
+    if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
+        return
+        
+    RDK.setParam('R1_LIBRE', '0')
     
     r.setPoseFrame(frame_robot)
 
@@ -173,7 +187,7 @@ def PickAndPlace_b_tipo2(r):
     r.setPoseFrame(frame_robot)
     r.MoveJ(safe)
 
-    RDK.setParam('Continuar1', '1')
+    RDK.setParam('R1_LIBRE', '1')
 
 
 PickAndPlace_b_tipo2(robot)
