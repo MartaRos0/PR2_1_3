@@ -5,7 +5,7 @@ from robolink import *
 RDK = robolink.Robolink()
 
 """
-Stack Tecnológico: Python 3, RoboDK API (robolink, robomath).
+Stack Tecnológico: Python, RoboDK API (robolink, robomath).
 Descripción: Script principal (Main) que orquesta la estación.
 Gestiona el inicio, los bucles de la cinta transportadora, las 
 llamadas a los robots y el control de paradas de emergencia.
@@ -16,10 +16,16 @@ def Reset():
     Limpia el entorno 3D antes de esperar un nuevo pedido:
     borra las cajas del frame 'FrameCAJA', reinicia la posición 
     de la cinta y asegura que la señal MQTT de encendido esté a 0.
+    Si venimos de una emergencia, NO borra las cajas para poder reanudar.
     """
-    
+    emergencia_activa = int(RDK.getParam('PARADA_EMERGENCIA') or '0') == 1
+
     RDK.setParam('MQTT_ESTACION_ENCENDIDA', '0')
     RDK.setParam('PARAR_ESTACION', '1')
+
+    if emergencia_activa:
+        # Si estamos en emergencia, salimos de la función sin borrar los objetos
+        return
     
     REFERENCE_FRAME = 'FrameCAJA'
     frame = RDK.Item(REFERENCE_FRAME, robolink.ITEM_TYPE_FRAME)
@@ -40,48 +46,67 @@ def init():
     Calcula los límites de ciclos para cada sensor y devuelve los robots a posición HOME.
     Debe llamarse una única vez tras recibir la señal MQTT de inicio.
     """
+    #Indicar que es el principio de un pedido (sin emergencia)
+    es_reanudacion = int(RDK.getParam('ES_REANUDACION') or '0') == 1
 
-    #Quitar la parada de emergenia
+    #Quitar la parada de emergenia para evitar confusion en otros pedidos
     RDK.setParam('PARADA_EMERGENCIA', '0')
-    RDK.setParam('ACTIVO', '1')
+    RDK.setParam('PRODUCIR_CAJAS', '1')
 
-    # Guardar el total inicial de pedido 1 como referencia fija
-    p1 = int(RDK.getParam('TOTAL_PEDIDO_1'))
-    p2 = int(RDK.getParam('TOTAL_PEDIDO_2'))
-    RDK.setParam('INITIAL_P1', str(p1))
-    RDK.setParam('TOTAL_PEDIDO_2_INICIAL', str(p2))
+    #Resetear la verificacion de stock para el pedido actual
+    RDK.setParam('STOCK_VERIFICADO', '0')
 
-    # Contadores de cajas que han llegado a cada sensor
-    RDK.setParam('CONTADOR_C', '0')
-    RDK.setParam('CONTADOR_T', '0')
-    RDK.setParam('CONTADOR_I', '0') 
+    if not es_reanudacion:
+        # Guardar el total inicial de pedido 1 como referencia fija
+        p1 = int(RDK.getParam('TOTAL_PEDIDO_1'))
+        p2 = int(RDK.getParam('TOTAL_PEDIDO_2'))
+        RDK.setParam('PEDIDO_1_INICIAL', str(p1))
+        RDK.setParam('PEDIDO_2_INICIAL', str(p2))
 
-    # Resetear la cuenta de cajas
-    RDK.setParam('BOLSA1_PICK', '1')
-    RDK.setParam('BOLSA2_PICK', '1')
+        # Contadores de cajas que han llegado a cada sensor
+        RDK.setParam('CONTADOR_C', '0')
+        RDK.setParam('CONTADOR_T', '0')
+        RDK.setParam('CONTADOR_I', '0') 
 
-    #INICIALIZAR VARIABLES PARA INDICAR QUE ES LA SEGUNDA CAJA POR MONTAR
-    RDK.setParam('PP_BOLSA_2', '0')
-    RDK.setParam('INS_BOLSA_2', '0')
-    RDK.setParam('TAPA_BOLSA_2', '0')
+        #Contador de cajas creadas para generar nombres distintos
+        RDK.setParam('CONTADOR_CREADAS', '0')
 
-    # LEYENDO PEDIDOS DE MQTT
-    total_cajas = p1 + p2
+        # Resetear la cuenta de cajas
+        RDK.setParam('BOLSA1_PICK', '1')
+        RDK.setParam('BOLSA2_PICK', '1')
 
-    tapa_lim = total_cajas + 8
-    ins_lim = total_cajas + 8
-    lim_bolsa = total_cajas + 1
-    RDK.setParam('lim_tapa', str(tapa_lim))
-    RDK.setParam('lim_ins', str(ins_lim))
-    RDK.setParam('lim_bolsa', str(lim_bolsa))
+        # INICIALIZAR VARIABLES PARA INDICAR QUE ES LA SEGUNDA CAJA POR MONTAR
+        RDK.setParam('PP_BOLSA_2', '0')
+        RDK.setParam('INS_BOLSA_2', '0')
+        RDK.setParam('TAPA_BOLSA_2', '0')
 
-    stop = total_cajas + 12 
-    RDK.setParam('CICLOS_HASTA_PARAR', str(stop))
+        # LEYENDO PEDIDOS DE MQTT
+        total_cajas = p1 + p2
+
+        #Variables para indicar cuando acaban de moverse los robots
+        #Se pone más para que el sistema y las variables se actualicen
+        LIMITE_TAPAS = total_cajas + 4
+        LIMITE_INSTRU = total_cajas + 3
+        LIMITE_BOLSAS = total_cajas + 1
+        RDK.setParam('LIMITE_TAPAS', str(LIMITE_TAPAS))
+        RDK.setParam('LIMITE_INSTRU', str(LIMITE_INSTRU))
+        RDK.setParam('LIMITE_BOLSAS', str(LIMITE_BOLSAS))
+
+        stop = total_cajas + 12 
+        RDK.setParam('CICLOS_HASTA_PARAR', str(stop))
+    else:
+        # si se reanuda después de una emergencia conservar contadores y límites
+        # Solo recalcular CICLOS_HASTA_PARAR con lo que queda
+        p1 = int(RDK.getParam('TOTAL_PEDIDO_1'))
+        p2 = int(RDK.getParam('TOTAL_PEDIDO_2'))
+
+        restantes = p1 + p2 + 12
+        RDK.setParam('CICLOS_HASTA_PARAR', str(restantes))
 
     # Variables de sincronización de cinta
-    RDK.setParam('Continuar1', '1')
-    RDK.setParam('Conti_T', '1')
-    RDK.setParam('Conti_I', '1')
+    RDK.setParam('R1_LIBRE', '1')
+    RDK.setParam('R2_LIBRE', '1')
+    RDK.setParam('INSTRU_LIBRE', '1')
 
     #Devolver los robots a sus posiciones iniciales
     robot_1 = RDK.Item('r_UR3e_(COGIDA)', robolink.ITEM_TYPE_ROBOT)
@@ -128,12 +153,8 @@ def AvanzaSimpa():
     NEW_REF_OBJECT_NAME = 'CAJA_REF' 
     NEW_REF_OBJECT_NAME_2 = 'CAJA_REF_2'
 
-    NEW_OBJECT_NAME = 'CAJA' 
-    NEW_OBJECT_NAME_2 = 'CAJA2'
-
     REFERENCE_FRAME = 'FrameCAJA' 
     REFERENCE_FRAME_REF = 'FrameInitCaja' 
-    FRAME_DIST = 'FrameCintaP' 
 
     MECHANISM_NAME = 'CINTA_PRINCIPAL' 
     MECHANISM_NAME_DOOR = 'Dispensa_CAJAS' 
@@ -151,46 +172,50 @@ def AvanzaSimpa():
     door = RDK.Item(MECHANISM_NAME_DOOR,itemtype=robolink.ITEM_TYPE_ROBOT)
     mechanism = RDK.Item(MECHANISM_NAME,itemtype=ITEM_TYPE_ROBOT)
 
-    #---CONTROL DE LAS VARIABLES PARA GENERAR CADA TIPO DE CAJA---
+    #actualizar las variables de limite en cada avance
     p1 = int(RDK.getParam('TOTAL_PEDIDO_1'))
     p2 = int(RDK.getParam('TOTAL_PEDIDO_2'))
 
-    tapa_lim = int(RDK.getParam('lim_tapa'))
-    ins_lim = int(RDK.getParam('lim_ins'))
-    lim_bolsa = int(RDK.getParam('lim_bolsa'))
+    LIMITE_TAPAS = int(RDK.getParam('LIMITE_TAPAS'))
+    LIMITE_INSTRU = int(RDK.getParam('LIMITE_INSTRU'))
+    LIMITE_BOLSAS = int(RDK.getParam('LIMITE_BOLSAS'))
 
     para = int(RDK.getParam('CICLOS_HASTA_PARAR'))
 
-    if tapa_lim > 0:
-        tapa_lim = tapa_lim - 1
+    if LIMITE_TAPAS > 0:
+        LIMITE_TAPAS = LIMITE_TAPAS - 1
 
-    if ins_lim > 0:
-        ins_lim = ins_lim - 1
+    if LIMITE_INSTRU > 0:
+        LIMITE_INSTRU = LIMITE_INSTRU - 1
 
-    if lim_bolsa > 0:
-        lim_bolsa -= 1
+    if LIMITE_BOLSAS > 0:
+        LIMITE_BOLSAS -= 1
 
     if para > 0:
         para = para - 1
 
-    RDK.setParam('lim_tapa', str(tapa_lim))
-    RDK.setParam('lim_ins', str(ins_lim))
-    RDK.setParam('lim_bolsa', str(lim_bolsa))
+    RDK.setParam('LIMITE_TAPAS', str(LIMITE_TAPAS))
+    RDK.setParam('LIMITE_INSTRU', str(LIMITE_INSTRU))
+    RDK.setParam('LIMITE_BOLSAS', str(LIMITE_BOLSAS))
 
     RDK.setParam('CICLOS_HASTA_PARAR', str(para))
 
-    #---CONTROL DE LA PARADA DE LA ESTACIoN---
+    #CONTROL DE LA PARADA DE LA ESTACIoN
     if para <= 0:
         RDK.setParam('PARAR_ESTACION', '0')
 
-    #Parar de generar pedidos
+    #Parar de generar pedidos cuando se hayan sacado todas las cajas
     if p1 == 0 and p2 == 0:
-        RDK.setParam('ACTIVO', '0')
+        RDK.setParam('PRODUCIR_CAJAS', '0')
         
-    sacar = int(RDK.getParam('ACTIVO'))
+    generar_nuevas_cajas = int(RDK.getParam('PRODUCIR_CAJAS'))
 
-    #Mientras hayan cajas por crear
-    if sacar == 1:
+    #Mientras hayan cajas por crear, hacer copias
+    if generar_nuevas_cajas == 1:
+
+        seq = int(RDK.getParam('CONTADOR_CREADAS') or '0') + 1
+        RDK.setParam('CONTADOR_CREADAS', str(seq))
+        
         #INICIALIZAR PUERTA
         if door.Valid():
             door.setJoints([0])
@@ -202,7 +227,7 @@ def AvanzaSimpa():
                 ref_obj.Copy()
                 new_obj = RDK.Paste()
                 new_obj.setVisible(False)
-                new_obj.setName(NEW_OBJECT_NAME)
+                new_obj.setName(f"CAJA_{seq:03d}")
                 
                 new_obj.setParent(frame_ref)
                 RDK.Update()
@@ -214,12 +239,13 @@ def AvanzaSimpa():
                 p1 = p1 - 1
                 RDK.setParam('TOTAL_PEDIDO_1', str(p1))
 
+        #igual para las cajas del segundo tipo
         elif p2 > 0:
             if frame.Valid() and  ref_obj.Valid():
                 ref_obj_2.Copy()
                 new_obj_2 = RDK.Paste()
                 new_obj_2.setVisible(False)
-                new_obj_2.setName(NEW_OBJECT_NAME_2)
+                new_obj_2.setName(f"CAJA2_{seq:03d}")
                 
                 new_obj_2.setParent(frame_ref)
                 RDK.Update()
@@ -227,7 +253,6 @@ def AvanzaSimpa():
                 new_obj_2.setParentStatic(frame)
                 new_obj_2.setVisible(True)
 
-                #CAJA CREADA - SE RESTA DE LAS RESTANTES
                 p2 = p2 - 1
                 RDK.setParam('TOTAL_PEDIDO_2', str(p2))
                 
@@ -245,7 +270,7 @@ def AvanzaSimpa():
         except Exception:
             continue
 
-    if sacar == 1:
+    if generar_nuevas_cajas == 1:
         #ABRIR PUERTA
         if door.Valid():
             door.MoveJ(door.Joints() + DOOR_TRAVEL_MM)
@@ -254,131 +279,194 @@ def AvanzaSimpa():
     if mechanism.Valid():
         mechanism.MoveJ(mechanism.Joints() + PART_TRAVEL_MM)
 
-    if sacar == 1:
+    if generar_nuevas_cajas == 1:
         #CERRAR PUERTA
         if door.Valid():
             door.MoveJ(door.Joints() - DOOR_TRAVEL_MM)
 
 
 # --- INICIO REAL DEL PROGRAMA PRINCIPAL ---
-Reset()
+def programa_principal():
+    Reset()
+    
+    # Esperar hasta recibir mensaje por MQTT
+    while int(RDK.getParam('MQTT_ESTACION_ENCENDIDA')) == 0:
+        time.sleep(0.1)
 
-# Esperar hasta recibir mensaje por MQTT
-while int(RDK.getParam('MQTT_ESTACION_ENCENDIDA')) == 0:
-    time.sleep(0.1)
+    #Hasta no recibir la señal mqtt no se puede actualizar las variables
+    init()
+    # Siempre debemos volver a encender los sensores
+    RDK.RunProgram('DetectaSensor', False)
 
-init()
-
-RDK.RunProgram('DetectaSensor', False)
-AvanzaSimpa()
-time.sleep(0.2)
-
-
-contador_c = int(RDK.getParam('CONTADOR_C')) + 1
-RDK.setParam('CONTADOR_C', str(contador_c))
-
-initial_p1 = int(RDK.getParam('INITIAL_P1'))
-RDK.setParam('Continuar1', '0')
-
-if contador_c > initial_p1:
-    RDK.RunProgram('ROBOT1_BOLSA2', False)
-else:
-    RDK.RunProgram('ROBOT1_BOLSA1', False)
-
-# PROGRAMA GENERAL EN BUCLE HASTA QUE SE ACABEN LOS PEDIDOS
-while int(RDK.getParam('PARAR_ESTACION')):
     if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
-        break
+        return 
+    
+    #caso que se pulse iniciar sin mandar nada
+    if int(RDK.getParam('PEDIDO_2_INICIAL')) == 0 and int(RDK.getParam('PEDIDO_1_INICIAL')) == 0:
+        return
+    
+    #Esperar a que la base de datos verifique el stock
+    while int(RDK.getParam('STOCK_VERIFICADO')) == 0:
+        if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
+            break
+        time.sleep(0.2)
 
-    while int(RDK.getParam('Continuar1')) == 0 or int(RDK.getParam('Conti_T')) == 0 or int(RDK.getParam('Conti_I')) == 0:
+    if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
+        return
+    
+    #Mirar si se viene de una parada de emergencia
+    es_reanudacion = int(RDK.getParam('ES_REANUDACION') or '0') == 1
+    if not es_reanudacion:
+        # COMPORTAMIENTO NORMAL: Forzar la primera caja
+        AvanzaSimpa()
+        time.sleep(0.2)
+
+        if int(RDK.getParam('PARADA_EMERGENCIA')) == 0:
+            contador_c = int(RDK.getParam('CONTADOR_C')) + 1
+            RDK.setParam('CONTADOR_C', str(contador_c))
+            RDK.setParam(f'NOMBRE_C_{contador_c:03d}', RDK.getParam('NOMBRE_CAJA_EN_C') or '')
+
+            PEDIDO_1_INICIAL = int(RDK.getParam('PEDIDO_1_INICIAL'))
+            RDK.setParam('R1_LIBRE', '0')   #indicamos que se esta realizando una accion en la estacion (parar cinta)
+
+            if int(RDK.getParam('PEDIDO_2_INICIAL')) == 0 and int(RDK.getParam('PEDIDO_1_INICIAL')) == 0:
+                return
+            
+
+
+            if contador_c > PEDIDO_1_INICIAL or int(RDK.getParam('PP_BOLSA_2')) == 1:
+                RDK.RunProgram('ROBOT1_BOLSA2', False)
+            else:
+                RDK.RunProgram('ROBOT1_BOLSA1', False)
+    else:
+        # si viene de una emergencia, le damos medio segundo a los sensores 
+        time.sleep(0.5)
+
+
+    # PROGRAMA GENERAL EN BUCLE HASTA QUE SE ACABEN LOS PEDIDOS
+    while int(RDK.getParam('PARAR_ESTACION')) and int(RDK.getParam('PARADA_EMERGENCIA')) == 0:
+
+        total_cajas = (int(RDK.getParam('PEDIDO_1_INICIAL')) + int(RDK.getParam('PEDIDO_2_INICIAL')))
+
+        #Bucle para verificar que todos los procesos han acabado antes de avanzar la cinta de nuevo
+        while int(RDK.getParam('R1_LIBRE')) == 0 or int(RDK.getParam('R2_LIBRE')) == 0 or int(RDK.getParam('INSTRU_LIBRE')) == 0:
+            if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
+                break
+            time.sleep(0.1)
+
+        #Lo coloco porque si en el bucle anterior hay emergencia, saltaba a lanzar la cinta automaticamente
+        if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
+            break
+
+        #caso que se pulse iniciar sin mandar nada (por si acaso)
+        if int(RDK.getParam('PEDIDO_2_INICIAL')) == 0 and int(RDK.getParam('PEDIDO_1_INICIAL')) == 0:
+            return
+
+
+        AvanzaSimpa()
+        time.sleep(0.2)
+
+    #COLOCAR BOLSAS
+        if (int(RDK.getParam('LIMITE_BOLSAS')) != 0 and int(RDK.getParam('SenyalSensor_C')) == 1 and int(RDK.getParam('CONTADOR_C')) < total_cajas):
+            
+            contador_c = int(RDK.getParam('CONTADOR_C')) + 1
+            RDK.setParam('CONTADOR_C', str(contador_c))
+            RDK.setParam(f'NOMBRE_C_{contador_c:03d}', RDK.getParam('NOMBRE_CAJA_EN_C') or '')
+
+            PEDIDO_1_INICIAL = int(RDK.getParam('PEDIDO_1_INICIAL'))
+
+            #Se van contando las cajas ya montadas con las totales del tipo 1
+            #También si el sensor detecta el tipo correcto, para asegurar fiabilidad
+            if (contador_c > PEDIDO_1_INICIAL or int(RDK.getParam('PP_BOLSA_2')) == 1):
+                es_tipo_2 = True
+            else:
+                es_tipo_2 = False
+
+            RDK.setParam('R1_LIBRE', '0')
+            if es_tipo_2:
+                RDK.RunProgram('ROBOT1_BOLSA2', False)
+            else:
+                RDK.RunProgram('ROBOT1_BOLSA1', False)
+                
+    #COLOCAR INSTRUCCIONES
+        if (int(RDK.getParam('LIMITE_INSTRU')) != 0 and int(RDK.getParam('SenyalSensor_I')) == 1 and int(RDK.getParam('CONTADOR_I')) < total_cajas):
+            contador_i = int(RDK.getParam('CONTADOR_I')) + 1
+            RDK.setParam('CONTADOR_I', str(contador_i))
+
+            RDK.setParam('INSTRU_LIBRE', '0')
+            RDK.RunProgram('PONER_INSTRU', False)
+
+    #COLOCAR TAPA
+        if (int(RDK.getParam('LIMITE_TAPAS')) != 0 and int(RDK.getParam('SenyalSensor_T')) == 1 and int(RDK.getParam('CONTADOR_T')) < total_cajas):
+            contador_t = int(RDK.getParam('CONTADOR_T')) + 1
+            RDK.setParam('CONTADOR_T', str(contador_t))
+            RDK.setParam(f'NOMBRE_T_{contador_t:03d}', RDK.getParam('NOMBRE_CAJA_EN_T') or '')
+
+            PEDIDO_1_INICIAL = int(RDK.getParam('PEDIDO_1_INICIAL'))
+
+            if (contador_t > PEDIDO_1_INICIAL or int(RDK.getParam('TAPA_BOLSA_2')) == 1):
+                es_tipo_2_t = True
+            else:
+                es_tipo_2_t = False
+
+            RDK.setParam('R2_LIBRE', '0')
+            if es_tipo_2_t:
+                RDK.RunProgram('ROBOT2_TAPA2', False)
+            else:
+                RDK.RunProgram('ROBOT2_TAPA1', False)
+                
+        time.sleep(0.05)
+
+    
+    #Esperar a que los robots terminen
+    while int(RDK.getParam('R1_LIBRE')) == 0 or int(RDK.getParam('R2_LIBRE')) == 0 or int(RDK.getParam('INSTRU_LIBRE')) == 0:
         if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
             break
         time.sleep(0.1)
-
-    AvanzaSimpa()
-    time.sleep(0.2)
-
-#COLOCAR BOLSAS
-    if int(RDK.getParam('lim_bolsa')) != 0 and int(RDK.getParam('SenyalSensor_C')) == 1:
         
-        contador_c = int(RDK.getParam('CONTADOR_C')) + 1
-        RDK.setParam('CONTADOR_C', str(contador_c))
 
-        initial_p1 = int(RDK.getParam('INITIAL_P1'))
+def finalizar():
+    if int(RDK.getParam('PARADA_EMERGENCIA')) == 0:
+        #Devolver los robots a sus posiciones iniciales
+        robot_1 = RDK.Item('r_UR3e_(COGIDA)', robolink.ITEM_TYPE_ROBOT)
+        tool_1 = RDK.Item('VENTOSA-COG', robolink.ITEM_TYPE_TOOL)
 
-        if contador_c > initial_p1:
-            es_tipo_2 = True
-        else:
-            es_tipo_2 = False
+        robot_2 = RDK.Item('r_UR3e_(TAPAS)', robolink.ITEM_TYPE_ROBOT)
+        tool_2 = RDK.Item('VENTOSA-FIN', robolink.ITEM_TYPE_TOOL)
 
-        RDK.setParam('Continuar1', '0')
-        if es_tipo_2:
-            RDK.RunProgram('ROBOT1_BOLSA2', False)
-        else:
-            RDK.RunProgram('ROBOT1_BOLSA1', False)
-            
-#COLOCAR INSTRUCCIONES
-    if int(RDK.getParam('lim_ins')) != 0 and int(RDK.getParam('SenyalSensor_I')) == 1:
-        contador_i = int(RDK.getParam('CONTADOR_I')) + 1
-        RDK.setParam('CONTADOR_I', str(contador_i))
+        #FRAMES
+        frame_robot_1 = RDK.Item('UR3e_Base', robolink.ITEM_TYPE_FRAME) 
+        frame_robot_2 = RDK.Item('UR3e Base (2)', robolink.ITEM_TYPE_FRAME)
 
-        RDK.setParam('Conti_I', '0')
-        RDK.RunProgram('PONER_INSTRU', False)
+        #TARGETS
+        home_1 = RDK.Item('HOME_R1', robolink.ITEM_TYPE_TARGET)
+        home_2 = RDK.Item('HOME_R2', robolink.ITEM_TYPE_TARGET)
+        safe_1 = RDK.Item('SAFE_R1', robolink.ITEM_TYPE_TARGET)
+        safe_2 = RDK.Item('SAFE_R2', robolink.ITEM_TYPE_TARGET)
 
-#COLOCAR TAPA
-    if int(RDK.getParam('lim_tapa')) != 0 and int(RDK.getParam('SenyalSensor_T')) == 1:
-        contador_t = int(RDK.getParam('CONTADOR_T')) + 1
-        RDK.setParam('CONTADOR_T', str(contador_t))
+        robot_1.setTool(tool_1)
+        robot_2.setTool(tool_2)
 
-        initial_p1 = int(RDK.getParam('INITIAL_P1'))
+        robot_1.setPoseFrame(frame_robot_1)
+        robot_1.MoveJ(home_1)
 
-        if contador_t > initial_p1:
-            es_tipo_2_t = True
-        else:
-            es_tipo_2_t = False
+        robot_2.setPoseFrame(frame_robot_2)
+        robot_2.MoveJ(home_2)
 
-        RDK.setParam('Conti_T', '0')
-        if es_tipo_2_t:
-            RDK.RunProgram('ROBOT2_TAPA2', False)
-        else:
-            RDK.RunProgram('ROBOT2_TAPA1', False)
-            
-    time.sleep(0.05)
-    
+    #Asegurar que se para la estacion (por si se inicia sin pedidos)
+    RDK.setParam('PARAR_ESTACION', '0')
+    time.sleep(1)
 
 
-#Esperar a que los robots terminen
-while int(RDK.getParam('Continuar1')) == 0 or int(RDK.getParam('Conti_T')) == 0 or int(RDK.getParam('Conti_I')) == 0:
-    if int(RDK.getParam('PARADA_EMERGENCIA')) == 1:
-        break
-    time.sleep(0.1)
+if __name__ == "__main__":
+    #Asegurar que estan en el valor deseado
+    RDK.setParam('PARADA_EMERGENCIA', '0')
+    RDK.setParam('ES_REANUDACION', '0')
+    # Lanzamos los programas en segundo plano
+    RDK.RunProgram('MqttListener', False)
+    RDK.RunProgram('BASE_DATOS', False)
 
-if int(RDK.getParam('PARADA_EMERGENCIA')) == 0:
-    #Devolver los robots a sus posiciones iniciales
-    robot_1 = RDK.Item('r_UR3e_(COGIDA)', robolink.ITEM_TYPE_ROBOT)
-    tool_1 = RDK.Item('VENTOSA-COG', robolink.ITEM_TYPE_TOOL)
-
-    robot_2 = RDK.Item('r_UR3e_(TAPAS)', robolink.ITEM_TYPE_ROBOT)
-    tool_2 = RDK.Item('VENTOSA-FIN', robolink.ITEM_TYPE_TOOL)
-
-    #FRAMES
-    frame_robot_1 = RDK.Item('UR3e_Base', robolink.ITEM_TYPE_FRAME) 
-    frame_robot_2 = RDK.Item('UR3e Base (2)', robolink.ITEM_TYPE_FRAME)
-
-    #TARGETS
-    home_1 = RDK.Item('HOME_R1', robolink.ITEM_TYPE_TARGET)
-    home_2 = RDK.Item('HOME_R2', robolink.ITEM_TYPE_TARGET)
-    safe_1 = RDK.Item('SAFE_R1', robolink.ITEM_TYPE_TARGET)
-    safe_2 = RDK.Item('SAFE_R2', robolink.ITEM_TYPE_TARGET)
-
-    robot_1.setTool(tool_1)
-    robot_2.setTool(tool_2)
-
-    robot_1.setPoseFrame(frame_robot_1)
-    robot_1.MoveJ(home_1)
-
-    robot_2.setPoseFrame(frame_robot_2)
-    robot_2.MoveJ(home_2)
-
-time.sleep(1)
-
+    # Bucle infinito del programa principal
+    while 1:
+        programa_principal()
+        finalizar()
