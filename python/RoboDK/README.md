@@ -6,28 +6,34 @@ Si se quiere probar el funcionamiento sin necesidad de la ESP, se ha adjuntado u
 También se recomienda subscribirse a los siguientes topics para ver como trabaja el proceso por dentro al completo:
    - **`PR2_1_3/linea1/esp`**
    - **`PR2_1_3/linea1/python`**
+   - **`PR2_1_3/linea1/web`**
 
 ## PASOS PARA ARRANCAR LA ESTACIÓN
 1. Asegurate de tener este proyecto (.rdk) abierto en RoboDK.
-2. En el árbol del proyecto de la izquierda, ejecuta los siguientes tres scripts de Python para que funcionen simultaneamente:
-   - **`MqttListener`**
+2. En el árbol del proyecto de la izquierda, ejecuta el siguiente scripts de Python:
    - **`Main_Produccion`**
 
 ## INICIAR LA PRODUCCIÓN
-Una vez los scripts esten corriendo, la estación se quedara a la espera. Para iniciar la fabricación, conectate al broker **"broker.emqx.io"** y envia los siguientes mensajes JSON en orden al topic ***"PR2_1_3/linea1/esp"***:
+Una vez los scripts esten corriendo, la estación se quedara a la espera. Para iniciar la fabricación, conectate al broker **"broker.emqx.io"** y envia los siguientes mensajes JSON en orden al topic 
+***"PR2_1_3/linea1/web"***:
 
 * **`{"cajas_tipo_1": "2"}`**
 * **`{"cajas_tipo_2": "3"}`**
+
+***"PR2_1_3/linea1/esp"***:
+
 * **`{"tipo": "EMPIEZA"}`**
 
 (Puedes cambiar los numeros para probar distintos tamanos de pedido).
 
 ### PARADA DE EMERGENCIA (E-STOP)
-Si necesitas abortar la producción instantaneamente y devolver los robots a su posicion de seguridad, envia el siguiente mensaje JSON al mismo topic:
+Si necesitas abortar la producción instantaneamente y devolver los robots a su posicion de seguridad, envia el siguiente mensaje JSON al mismo topic que el mensaje EMPIEZA:
 
 **`{"aviso": "EMERGENCIA"}`**
+
+Si volvemos a indicar con el mensaje EMPIEZA la simulación proseguirá la producción con un avance de cinta (esto hará que si un proceso se ha quedado a medias no se termine, tomando ese pedido como "descartado").
 
 ---------------------------------------------------------
 
 ## FIN DEL PEDIDO
-Tras finalizar se observará como los robots regresan a su posición de reposo y el sistema se parará automáticamente.
+Tras finalizar se observará como los robots regresan a su posición de reposo y el sistema quedará a la espera de nuevos pedidos para procesar.
