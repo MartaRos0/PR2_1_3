@@ -14,7 +14,7 @@ También se recomienda subscribirse a los siguientes topics para ver como trabaj
    - **`Main_Produccion`**
 
 ## INICIAR LA PRODUCCIÓN
-Una vez los scripts esten corriendo, la estación se quedara a la espera. Para iniciar la fabricación, conectate al broker **"broker.emqx.io"** y envia los siguientes mensajes JSON en orden al topic 
+Una vez los scripts esten corriendo, la estación se quedará a la espera. Para iniciar la fabricación, conectate al broker **"broker.emqx.io"** y envia los siguientes mensajes JSON en orden al topic 
 ***"PR2_1_3/linea1/web"***:
 
 * **`{"cajas_tipo_1": "2"}`**
@@ -27,7 +27,7 @@ Una vez los scripts esten corriendo, la estación se quedara a la espera. Para i
 (Puedes cambiar los números para probar distintos tamanos de pedido).
 
 ### PARADA DE EMERGENCIA (E-STOP)
-Si necesitas abortar la producción instantaneamente y devolver los robots a su posicion de seguridad, envia el siguiente mensaje JSON al mismo topic que el mensaje EMPIEZA:
+Si necesitas abortar la producción instantaneamente y devolver los robots a su posición de seguridad, envía el siguiente mensaje JSON al mismo topic que el mensaje EMPIEZA:
 
 **`{"aviso": "EMERGENCIA"}`**
 
