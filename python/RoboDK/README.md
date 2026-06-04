@@ -24,7 +24,7 @@ Una vez los scripts esten corriendo, la estación se quedara a la espera. Para i
 
 * **`{"tipo": "EMPIEZA"}`**
 
-(Puedes cambiar los numeros para probar distintos tamanos de pedido).
+(Puedes cambiar los números para probar distintos tamanos de pedido).
 
 ### PARADA DE EMERGENCIA (E-STOP)
 Si necesitas abortar la producción instantaneamente y devolver los robots a su posicion de seguridad, envia el siguiente mensaje JSON al mismo topic que el mensaje EMPIEZA:
